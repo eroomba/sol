@@ -8,10 +8,6 @@ import rl "vendor:raylib"
 import "core:mem"
 import vmem "core:mem/virtual"
 
-SCREEN_WIDTH:i32 : 1920
-SCREEN_HEIGHT:i32 : 1080
-BOARD_WIDTH:f32 : 1920
-BOARD_HEIGHT:f32 : 1080
 FRAME_RATE:i32 : 500
 STEP_RATE:i32 : 96
 
@@ -75,8 +71,19 @@ game_settings := Game_Settings{
 	births = false
 }
 
-active_width:f32 = f32(BOARD_WIDTH)
-active_height:f32 = f32(BOARD_HEIGHT)
+target_width:f32= 1920
+target_height:f32 = 1080
+target_ratio:f32 = target_height / target_width
+
+screen_width:f32 = 1920
+screen_height:f32 = 1080
+
+active_width:f32 = f32(screen_width)
+active_height:f32 = f32(screen_height)
+active_x:f32 = 0
+active_y:f32 = 0
+
+monitor:i32 = -1
 
 delta:f32 = 0
 s_delta:f32 = 0
@@ -135,9 +142,39 @@ main :: proc() {
 		}
 	}
 
+
     rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
-	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "cards")
+
+	start_w:i32 = 0
+	start_h:i32 = 0
+	go_full:bool = true
+	rl.InitWindow(start_w, start_h, "cards")
+	if go_full {
+		rl.ToggleFullscreen()
+		curr_width:f32 = f32(rl.GetScreenWidth())
+		curr_height:f32 = f32(rl.GetScreenHeight())
+		if curr_width != target_width || curr_height != target_height {
+			active_width = curr_width
+			active_height = curr_width * target_ratio
+			active_y = (curr_height - active_height) * 0.5
+			active_x = 0
+			screen_width = curr_width
+			screen_height = curr_height
+		}
+	} else {
+		curr_width:f32 = f32(start_w)
+		curr_height:f32 = f32(start_h)
+		if curr_width != target_width || curr_height != target_height {
+			active_width = curr_width
+			active_height = curr_width * target_ratio
+			active_y = (curr_height - active_height) * 0.5
+			active_x = 0
+			screen_width = curr_width
+			screen_height = curr_height
+		}
+	}
+
 	rl.SetTargetFPS(FRAME_RATE)
 	defer rl.CloseWindow()
 
@@ -149,6 +186,8 @@ main :: proc() {
 
     ig:int = init_graphics()
     defer end_graphics()
+
+	init_board()
 
     for !rl.WindowShouldClose() && game_state != Game_State.Exited {
 

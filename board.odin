@@ -60,7 +60,8 @@ Board :: struct {
     island_info:rl.Rectangle,
     island_log:rl.Rectangle,
     island_log_scroll:rl.Vector2,
-    island_log_params:[]f32,
+    island_log_font_size:f32,
+    island_log_line_padding:f32,
     
     player_map_stats:[]rl.Rectangle,
     player_map_stats_ids:[]string,
@@ -92,6 +93,7 @@ Board :: struct {
     continue_button_status:bit_set[Board_Status],
     continue_button_text:cstring,
 
+    play_button_pos:rl.Rectangle,
     play_button:rl.Rectangle,
     play_button_status:bit_set[Board_Status],
     settings_button:rl.Rectangle,
@@ -122,7 +124,7 @@ board := Board{
     width = active_width,
     height = active_height,
 
-    font_size = math.ceil(active_height * 0.025),
+    font_size = 10,
 
     hover_card_power = 0,
     hover_card_suit = "",
@@ -134,8 +136,8 @@ board := Board{
 
     logo = { 0, 0, 0, 0 },
 
-    button_font_size = active_height * 0.045,
-    button_padding = active_height * 0.02,
+    button_font_size = 12,
+    button_padding = 8,
     button_font_spacing = 2,
 
     title = { 0, 0, 0, 0 },
@@ -165,11 +167,8 @@ board := Board{
     island_info = { 0, 0, 0, 0 },
     island_log = { 0, 0, 0, 0 },
     island_log_scroll = { 0, 0 },
-    island_log_params = []f32{ 
-        active_height * 0.02, // font size
-        active_height * 0.02 * 0.25, // line padding
-        0.025 // log pad ratio to log width
-    },
+    island_log_font_size = 10,
+    island_log_line_padding = 3,
 
     player_map_stats = []rl.Rectangle{
         rl.Rectangle{ 0, 0, 0, 0 },
@@ -178,8 +177,8 @@ board := Board{
     },
     player_map_stats_ids = []string { "MapPopulation", "MapFood", "MapMoney" },
 
-    padding = math.floor(active_width * 0.02),
-    card_padding = math.floor(active_width * 0.01),
+    padding = 10,
+    card_padding = 8,
 
     // buttons
 
@@ -213,6 +212,7 @@ board := Board{
     continue_button_status = bit_set[Board_Status]{},
     continue_button_text = "BACK",
 
+    play_button_pos = { 0, 0, 0, 0 },
     play_button = { 0, 0, 0, 0 },
     play_button_status = bit_set[Board_Status]{},
     settings_button = { 0, 0, 0, 0 },
@@ -294,20 +294,35 @@ end_board :: proc() {
 }
 
 calculate_board :: proc() {    
-    cx:f32 = board.padding
-    cy:f32 = board.padding
+
+    board.font_size = math.ceil(active_height * 0.025)
+
+    board.button_font_size = active_height * 0.045
+    board.button_padding = active_height * 0.02
+
+    board.island_log_font_size = active_height * 0.02 < 10 ? 10 : active_height * 0.02
+    board.island_log_line_padding = board.island_log_font_size * 0.25 < 3 ? 3 : board.island_log_font_size * 0.25
+
+    board.padding = math.floor(active_width * 0.02)
+    board.card_padding = math.floor(active_width * 0.01)
+
+    card_dw = active_width * 0.07
+    card_dh = math.floor((f32(350) / f32(250)) * card_dw)
+
+    cx:f32 = active_x + board.padding
+    cy:f32 = active_y + board.padding
 
     sb_w:f32 = active_width * 0.02
     sb_p:f32 = active_width * 0.005
 
-    sb_x:f32 = active_width - sb_w - sb_p
+    sb_x:f32 = active_x + (active_width - sb_w - sb_p)
     sb_y:f32 = sb_p
 
     board.settings_button = { sb_x, sb_y, sb_w, sb_w }
 
     // -------
 
-    board.title = { board.padding * 2, board.padding, active_width - (board.padding * 4), active_height - (board.padding * 2)}
+    board.title = { active_x + (board.padding * 2), active_y + (board.padding), active_width - (board.padding * 4), active_height - (board.padding * 2)}
     s_button_size := rl.MeasureTextEx(button_font, board.start_button_text, board.button_font_size, board.button_font_spacing)
     board.start_button.width = s_button_size.x + (6 * board.button_padding)
     board.start_button.height = s_button_size.y + (2 * board.button_padding)
@@ -318,8 +333,8 @@ calculate_board :: proc() {
 
     board.logo.width = board.title.width * 0.7
     board.logo.height = (f32(textures[txt_logo].height) / f32(textures[txt_logo].width)) * board.logo.width
-    board.logo.x = (active_width * 0.5) - (board.logo.width * 0.5)
-    board.logo.y = board.title.y + board.padding
+    board.logo.x = active_x + ((active_width * 0.5) - (board.logo.width * 0.5))
+    board.logo.y = active_y + (board.title.y + board.padding)
 
     b1_w:f32 = board.start_button.width + board.exit_button.width + board.padding
     b1_x:f32 = (active_width * 0.5) - (b1_w * 0.5)
@@ -341,7 +356,7 @@ calculate_board :: proc() {
     lv_button_pad:f32 = board.title.width * 0.015
 
     lv_buttons_w:f32 = (3 * lv_button_w) + (2 * lv_button_pad)
-    lv_buttons_x:f32 = (active_width * 0.5) - (lv_buttons_w * 0.5)
+    lv_buttons_x:f32 = active_x + (active_width * 0.5) - (lv_buttons_w * 0.5)
     lv_buttons_y:f32 = board.rules_button.y  - lv_button_h - (board.padding * 1.5)
 
     board.level_buttons[0] = { lv_buttons_x, lv_buttons_y, lv_button_w, lv_button_h}
@@ -362,18 +377,18 @@ calculate_board :: proc() {
 
     // -------
 
-    board.rules = { board.padding * 4, board.padding * 2, active_width - (board.padding * 8), active_height - (board.padding * 4)}
+    board.rules = { active_x + (board.padding * 4), active_y + (board.padding * 2), active_width - (board.padding * 8), active_height - (board.padding * 4)}
     c_button_size := rl.MeasureTextEx(button_font, board.continue_button_text, board.button_font_size, board.button_font_spacing)
     board.continue_button.width = c_button_size.x + (4 * board.button_padding)
     board.continue_button.height = c_button_size.y + (2 * board.button_padding)
-    board.continue_button.x = (active_width * 0.5) - (board.start_button.width * 0.5)
+    board.continue_button.x = active_x + ((active_width * 0.5) - (board.start_button.width * 0.5))
     board.continue_button.y = board.rules.y + board.rules.height - board.padding- board.continue_button.height
 
     board.instructions_disp = { board.rules.x + (2 * board.padding), board.rules.y + board.padding, board.rules.width - (4 * board.padding), board.rules.height - board.continue_button.height - (3.5 * board.padding) }
 
     // -------
 
-    board.ending = { board.padding * 4, board.padding * 4, active_width - (board.padding * 8), active_height - (board.padding * 8)}
+    board.ending = { active_x + (board.padding * 4), active_y + (board.padding * 4), active_width - (board.padding * 8), active_height - (board.padding * 8)}
 
     ee_button_size := rl.MeasureTextEx(button_font, board.ending_exit_button_text, board.button_font_size, board.button_font_spacing)
     board.ending_exit_button.width = ee_button_size.x + (4 * board.button_padding)
@@ -410,7 +425,7 @@ calculate_board :: proc() {
     board.targets.y = cy
     board.targets.height = (3 * board.card_padding) + (2 * card_dh)
 
-    board.suit_target.x = cx
+    board.suit_target.x = active_x + cx
     board.suit_target.y = cy
     board.suit_target.width = (8 * board.card_padding) + (3 * card_dw)
     board.suit_target.height = (3 * board.card_padding) + (2 * card_dh)
@@ -440,10 +455,10 @@ calculate_board :: proc() {
     }
     board.player_hand.y = board.targets.y + board.targets.height + board.padding
 
-    board.play_button.y = board.player_hand.y + board.player_hand.height + board.padding
-    board.play_button.x = board.player_hand.x + (board.player_hand.width * 0.5)
-    board.play_button.width = active_width * 0.05
-    board.play_button.height = active_height * 0.02
+    board.play_button_pos.y = board.player_hand.y + board.player_hand.height + board.padding
+    board.play_button_pos.x = board.player_hand.x + (board.player_hand.width * 0.5)
+    board.play_button_pos.width = active_width * 0.05
+    board.play_button_pos.height = active_height * 0.02
 
     board.player_hand_start.x = board.player_hand.x + (2 * board.card_padding)
     board.player_hand_start.y = board.player_hand.y + (2 * board.card_padding) 
@@ -460,13 +475,13 @@ calculate_board :: proc() {
     board.island_log.y = board.player_map.y + board.player_map.height + board.card_padding
     board.island_log.width = board.player_map.width
 
-    log_font_size:f32 = board.island_log_params[0]
-    log_line_pad:f32 = board.island_log_params[1]
+    log_font_size:f32 = board.island_log_font_size
+    log_line_pad:f32 = board.island_log_line_padding
     log_line_h:f32 = log_font_size + log_line_pad
-    log_padding:f32 = board.island_log.width * board.island_log_params[2]
+    log_padding:f32 = board.island_log_font_size * 0.5
 
-    max_log_h:f32 = active_height - board.island_log.y - (2 * board.padding)
-    board.island_log.height = 2 * log_padding
+    max_log_h:f32 = active_height - board.island_log.y - board.padding
+    board.island_log.height = 3 * log_line_h
     for board.island_log.height + log_line_h < max_log_h {
         board.island_log.height += log_line_h
     }

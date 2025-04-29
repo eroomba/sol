@@ -252,7 +252,6 @@ end_graphics :: proc() {
 }
 
 g_draw_game :: proc() {
-    calculate_board()
 
     if game_state == .Title {
         g_draw_title()
@@ -322,7 +321,7 @@ g_draw_tooltips :: proc() {
 }
 
 g_draw_background :: proc() {
-    rl.DrawTexturePro(textures[txt_bg], { 0, 0, f32(textures[txt_bg].width), f32(textures[txt_bg].height) }, { 0, 0, active_width, active_height }, { 0, 0 }, 0, rl.WHITE)
+    rl.DrawTexturePro(textures[txt_bg], { 0, 0, f32(textures[txt_bg].width), f32(textures[txt_bg].height) }, { active_x, active_y, active_width, active_height }, { 0, 0 }, 0, rl.WHITE)
 }
 
 g_draw_board :: proc() {
@@ -476,15 +475,15 @@ g_draw_board :: proc() {
     }
 
     p_button_f_size:f32 = board.button_font_size
-    p_button_txt:cstring = "PLAY"
+    p_button_txt:cstring = strings.clone_to_cstring("PLAY", allocator = graph_alloc)
     if game_step == .Play {
         p_button_txt = "CONTINUE"
     }
     p_button_size := rl.MeasureTextEx(button_font, p_button_txt, p_button_f_size, board.button_font_spacing)
     pb_w:f32 = (p_button_size.x * 2) + (2 * board.button_padding)
     pb_h:f32 = p_button_size.y + (2 * board.button_padding)
-    pb_x:f32 = board.play_button.x - (pb_w * 0.5)
-    pb_y:f32 = board.play_button.y
+    pb_x:f32 = board.play_button_pos.x - (pb_w * 0.5)
+    pb_y:f32 = board.play_button_pos.y
 
     pbt_x:f32 = pb_x + (pb_w * 0.5) - (p_button_size.x * 0.5)
     pbt_y:f32 = pb_y + board.button_padding
@@ -544,10 +543,10 @@ g_draw_board :: proc() {
     rl.DrawRectangleRoundedLinesEx(board.island_log, 0.2, 3, 4, { 16, 16, 16, 100 })
     rl.DrawRectangleRounded(board.island_log, 0.2, 3, { 16, 16, 16, 255 })
 
-    lg_f_size:f32 = board.island_log_params[0]
-    lg_ln_pad:f32 = board.island_log_params[1]
+    lg_f_size:f32 = board.island_log_font_size
+    lg_ln_pad:f32 = board.island_log_line_padding
     lg_ln_h:f32 = lg_f_size + lg_ln_pad
-    lg_pad:f32 = board.island_log.width * board.island_log_params[2]
+    lg_pad:f32 = board.island_log_font_size * 0.5
     lg_disp_h := f32(textures[txt_i_log].height)
     lg_disp_w := f32(textures[txt_i_log].width)
     lg_disp_x:f32 = board.island_log.x + (board.island_log.width * 0.5) - (f32(textures[txt_i_log].width) * 0.5)
@@ -574,6 +573,7 @@ g_draw_board :: proc() {
     }
 
     rl.DrawTexturePro(textures[txt_i_log], { 0, lg_disp_crop_y, lg_disp_w, lg_disp_crop_h }, { lg_disp_x, lg_disp_y, lg_disp_w, lg_disp_crop_h }, { 0, 0 }, 0, rl.WHITE)
+    //rl.DrawTexturePro(textures[txt_i_log], { 0, 0, lg_disp_w, lg_disp_h }, { active_x, active_y, lg_disp_w, lg_disp_h }, { 0, 0 }, 0, rl.WHITE)
 
     if draw_sb {
         sb_x:f32 = board.island_log.x + board.island_log.width - (lg_pad * 0.9)
@@ -604,9 +604,9 @@ g_draw_board :: proc() {
 }
 
 g_update_log :: proc() {
-    lg_f_size:f32 = board.island_log_params[0]
-    lg_ln_pad:f32 = board.island_log_params[1]
-    lg_pad:f32 = board.island_log.width * board.island_log_params[2]
+    lg_f_size:f32 = board.island_log_font_size
+    lg_ln_pad:f32 = board.island_log_line_padding
+    lg_pad:f32 = board.island_log_font_size * 0.5
     lg_ln_h:f32 = lg_f_size + lg_ln_pad
 
     lg_disp_w:f32 = board.island_log.width - (2.5 * lg_pad)
@@ -699,15 +699,15 @@ g_draw_card_info :: proc() {
         i_lines := wrap_lines(spell_info[deck[c_idx].spell], ci_txt_w, board.font_size)
         card_info.height += f32(len(i_lines)) * ci_lh
 
-        card_info.x = (active_width * 0.5) - (card_info.width * 0.5)
-        card_info.y = (active_height * 0.5) - (card_info.height * 0.5)
+        card_info.x = active_x + (active_width * 0.5) - (card_info.width * 0.5)
+        card_info.y = active_y + (active_height * 0.5) - (card_info.height * 0.5)
 
         card_disp.x = (card_info.x + (card_info.width * 0.5)) - (card_disp.width * 0.5)
         card_disp.y = card_info.y + ci_pad 
 
         ci_txt_x:f32 = card_info.x + ci_pad
 
-        rl.DrawRectangleRec({ 0, 0, active_width, active_height}, { 20, 20, 20, 100 })
+        rl.DrawRectangleRec({ 0, 0, screen_width, screen_height}, { 20, 20, 20, 100 })
 
         rl.DrawRectangleRounded(card_info, 0.2, 3, { 0, 0, 0, 255 })
         rl.DrawTexturePro(card_textures[c_idx], { 0, 0, f32(card_textures[c_idx].width), f32(card_textures[c_idx].height) }, card_disp, { 0, 0 }, 0, rl.WHITE)
@@ -756,8 +756,8 @@ g_draw_map_help :: proc() {
 
         hlp_map.width += 4 * board.font_size + hlp_pad + icon_s
 
-        hlp_map.x = (active_width * 0.5) - (hlp_map.width * 0.5)
-        hlp_map.y = (active_height * 0.5) - (hlp_map.height * 0.5)
+        hlp_map.x = active_x + (active_width * 0.5) - (hlp_map.width * 0.5)
+        hlp_map.y = active_y + (active_height * 0.5) - (hlp_map.height * 0.5)
 
         rl.DrawRectangleRec({ 0, 0, active_width, active_height}, { 20, 20, 20, 100 })
 

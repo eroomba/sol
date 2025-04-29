@@ -19,7 +19,7 @@ instructions := []string{
     "<EFFECTS>",
     "The spells:",
     "<SPELLS>",
-    "As mentioned earlier, you're playing against the Deck. It's not very smart. In fact, it can't think at all. Its plays are determined by the roll of a six-sided dice: 1, 2, or 3 pips means it plays 1, 2, or 3 cards as Suits, and 1, 2, or 3 stars means it plays 1, 2, or 3 cards as Spells.",
+    "As mentioned earlier, you're playing against the Deck. It's not very smart. In fact, it can't think at all. Its plays are determined by the roll of a six-sided dice: 1, 2, or 3 pips means it plays 1, 2, or 3 cards as Suits, and 1, 2, or 3 stars means it plays 1, 2, or 3 cards as Spells. Here's the thing, though: when the Deck plays everything goes AGAINST you. So if it casts Teleport, it REMOVES the sum of the cards from the population. If it plays a Suit hand worth 20, it REMOVES 20 from your tally. If it plays Storm as a spell, it doesn't remove any Fires, it only has a chance to add Flooding. Bad news.",
     "So there you have it! That's how you play! You play 10 rounds in a game and you can chose from one of three play modes: People, in which you need to have a certain number of people on the island at the end, Wealth (it's tough), where you need to have a certain amount of coin at the end, or Score, in which the total of your population, food, and coin adds up to your goal or higher.",
     "<GOODLUCK>"
 }
