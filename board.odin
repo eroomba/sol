@@ -331,11 +331,6 @@ calculate_board :: proc() {
     board.exit_button.width = e_button_size.x + (6 * board.button_padding)
     board.exit_button.height = e_button_size.y + (2 * board.button_padding)
 
-    board.logo.width = board.title.width * 0.7
-    board.logo.height = (f32(textures[txt_logo].height) / f32(textures[txt_logo].width)) * board.logo.width
-    board.logo.x = active_x + ((active_width * 0.5) - (board.logo.width * 0.5))
-    board.logo.y = active_y + (board.title.y + board.padding)
-
     b1_w:f32 = board.start_button.width + board.exit_button.width + board.padding
     b1_x:f32 = (active_width * 0.5) - (b1_w * 0.5)
 
@@ -374,6 +369,11 @@ calculate_board :: proc() {
     board.mode_buttons[0] = { m_buttons_x, m_buttons_y, m_button_w, m_button_h}
     board.mode_buttons[1] = { m_buttons_x + (1 * m_button_w) + (1 * m_button_pad), m_buttons_y, m_button_w, m_button_h}
     board.mode_buttons[2] = { m_buttons_x + (2 * m_button_w) + (2 * m_button_pad), m_buttons_y, m_button_w, m_button_h}
+
+    board.logo.height = m_buttons_y - board.title.y - (3 * board.padding)
+    board.logo.width = (f32(textures[txt_logo].width) / f32(textures[txt_logo].height)) * board.logo.height
+    board.logo.x = active_x + ((active_width * 0.5) - (board.logo.width * 0.5))
+    board.logo.y = board.title.y + board.padding
 
     // -------
 

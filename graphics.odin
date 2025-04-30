@@ -9,6 +9,7 @@ import "core:strconv"
 import "core:math/rand"
 import rl "vendor:raylib"
 
+
 BG_COLOR:rl.Color : { 0, 0, 0, 255 }
 CLEAR_COLOR:rl.Color : { 255, 255, 255, 0 }
 CARD_WIDTH:f32 : 250
@@ -222,10 +223,15 @@ init_graphics :: proc() -> int {
     
     free_all(graph_alloc)
 
+    init_animations()
+
     return ret_val
 }
 
 end_graphics :: proc() {
+
+    end_animations()
+
     for i in 0..<len(images) {
         rl.UnloadImage(images[i])
     }
@@ -267,6 +273,8 @@ g_draw_game :: proc() {
             g_draw_modal()
         }
     }
+
+    an_run_animations()
 
     g_draw_tooltips()
 
@@ -431,14 +439,8 @@ g_draw_board :: proc() {
     c_y:f32 = board.player_hand_start.y
 
     for c in 0..<len(player.hand) {
-        if player.hand[c] >= 0 && !(.Played in deck[player.hand[c]].status) {
-            d_x:f32 = c_x
-            d_y:f32 = c_y
-            if .Selected in deck[player.hand[c]].status {
-                d_y -= board.card_padding
-            }
-            g_draw_card(player.hand[c], { d_x, d_y }, 1)
-            deck[player.hand[c]].display = { d_x, d_y, card_dw, card_dh }
+        if player.hand[c] >= 0 {
+            g_draw_card(player.hand[c])
             c_x += card_dw + board.card_padding      
         }
     }
@@ -452,11 +454,8 @@ g_draw_board :: proc() {
     }
 
     for c in 0..<len(player.play.cards) {
-        if player.play.cards[c] >= 0 && .Played in deck[player.play.cards[c]].status {
-            d_x:f32 = cp_x
-            d_y:f32 = cp_y
-            g_draw_card(player.play.cards[c], { d_x, d_y }, 1)
-            deck[player.play.cards[c]].display = { d_x, d_y, card_dw, card_dh }
+        if player.play.cards[c] >= 0 {
+            g_draw_card(player.play.cards[c])
             cp_x += card_dw + board.card_padding      
         }
     }
@@ -470,7 +469,7 @@ g_draw_board :: proc() {
     }
 
     for c in 0..<len(dealer.play.cards) {
-        g_draw_card(dealer.play.cards[c], { cd_x, cd_y }, 1)
+        g_draw_card(dealer.play.cards[c])
         cd_x += card_dw + board.card_padding  
     }
 
@@ -1029,20 +1028,92 @@ g_draw_ending :: proc() {
 
 }
 
-g_draw_card :: proc(idx:int, pos:rl.Vector2, scale:f32) {
+g_get_card_pos :: proc(mode:Card_Mode, num:int, player_deck:int) -> rl.Vector2 {
+    cp_x:f32 = board.suit_target_bottom.x
+    cp_y:f32 = board.suit_target_bottom.y + board.card_padding
+
+    if player_deck < 0 {
+        cp_x = board.suit_target_top.x
+        cp_y = board.suit_target_top.y
+    }
+
+    if mode == .Spell {
+        cp_x = board.spell_target_bottom.x
+        cp_y = board.spell_target_bottom.y + board.card_padding
+
+        if player_deck < 0 {
+            cp_x = board.spell_target_top.x
+            cp_y = board.spell_target_top.y 
+        }
+    }
+
+    return rl.Vector2{ cp_x + (f32(num) * (card_dw + board.card_padding )), cp_y }
+}
+
+g_update_card_display :: proc() {
+    d_pos := g_get_card_pos(dealer.play.mode, 0, -1)
+    c_x := d_pos.x
+    c_y := d_pos.y
+
+    for c in 0..<len(dealer.play.cards) {
+        deck[dealer.play.cards[c]].display = { c_x + (card_dw * 0.5), c_y + (card_dh * 0.5), 1, 1 }
+        deck[dealer.play.cards[c]].hit = { c_x, c_y, card_dw, card_dh }
+        deck[dealer.play.cards[c]].rotation = 0
+        c_x += card_dw + board.card_padding
+    }
+
+    h_pos := board.player_hand_start
+    p_pos := g_get_card_pos(player.play.mode, 0, 1)
+    h_cx:f32 = h_pos.x
+    h_cy:f32 = h_pos.y
+    p_cx:f32 = p_pos.x
+    p_cy:f32 = p_pos.y
+
+    for c in 0..<len(player.hand) {
+        if .Played in deck[player.hand[c]].status {
+            deck[player.hand[c]].display = { p_cx + (card_dw * 0.5), p_cy + (card_dh * 0.5), 1, 1 }
+            deck[player.hand[c]].hit = { p_cx, p_cy, card_dw, card_dh }
+            deck[player.hand[c]].rotation = 0
+            p_cx += card_dw + board.card_padding
+        } else {
+            deck[player.hand[c]].display = { h_cx + (card_dw * 0.5), h_cy + (card_dh * 0.5), 1, 1 }
+            deck[player.hand[c]].hit = { h_cx, h_cy, card_dw, card_dh }
+            deck[player.hand[c]].rotation = 0
+            h_cx += card_dw + board.card_padding
+        }
+    }
+}
+
+g_draw_card :: proc(idx:int) {
     if idx >= 0 && idx < len(deck) {
-        src_w:f32 = f32(card_textures[idx].width)
-        src_h:f32 = f32(card_textures[idx].height)
-        left:f32 = pos.x
-        top:f32 = pos.y
-
-        c_idx:int = idx
-
-        if .Flipped in deck[idx].status {
-            c_idx = back_idx
+        card_vis:bool = true
+        if .Draw in deck[idx].status || .Discarded in deck[idx].status {
+            card_vis = false
         }
 
-        rl.DrawTexturePro(card_textures[c_idx], { 0, 0, src_w, src_h }, { left, top, card_dw * scale, card_dh * scale }, { 0, 0 }, 0, rl.WHITE)
+        if card_vis {
+            src_w:f32 = f32(card_textures[idx].width)
+            src_h:f32 = f32(card_textures[idx].height)
+            left:f32 = deck[idx].display.x
+            top:f32 = deck[idx].display.y
+            width:f32 = card_dw * deck[idx].display.width
+            height:f32 = card_dh * deck[idx].display.height
+            rot:f32 = deck[idx].rotation
+
+            if .Selected in deck[idx].status && !(.Animating in deck[idx].status) {
+                top -= board.card_padding
+            }
+    
+            c_idx:int = idx
+    
+            if .Flipped in deck[idx].status {
+                c_idx = back_idx
+            }
+
+            deck[idx].hit = { left - (width * 0.5), top - (height * 0.5), width, height }
+    
+            rl.DrawTexturePro(card_textures[c_idx], { 0, 0, src_w, src_h }, { left, top, width, height }, { width * 0.5, height * 0.5 }, rot, rl.WHITE)
+        }
     }
 }
 

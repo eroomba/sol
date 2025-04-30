@@ -34,6 +34,7 @@ Game_State :: enum {
 Game_Step :: enum {
 	Init,
 	Select,
+	Animating,
 	Play,
 	End
 }
@@ -93,6 +94,7 @@ step_delta:int = 0
 
 game_state:Game_State = Game_State.Title
 game_step:Game_Step = Game_Step.Init
+prev_game_step:Game_Step = Game_Step.Init
 game_mode:Game_Mode = Game_Mode.People
 game_mode_targets := [3]int { PEOPLE_TARGET, WEALTH_TARGET, SCORE_TARGET }
 game_level:int = 1
@@ -146,9 +148,9 @@ main :: proc() {
     rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
 
-	start_w:i32 = 0
-	start_h:i32 = 0
-	go_full:bool = true
+	start_w:i32 = 800
+	start_h:i32 = 800
+	go_full:bool = false
 	rl.InitWindow(start_w, start_h, "cards")
 	if go_full {
 		rl.ToggleFullscreen()
@@ -328,7 +330,7 @@ main :: proc() {
 			}
 		}
 
-		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+		if game_step != .Animating && rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
 			inject_at(&events, 0, Event{
 				e_type = .Click,
 				flags = set_flags + {},
@@ -337,7 +339,7 @@ main :: proc() {
 			})
 		}
 
-		if rl.IsMouseButtonPressed(rl.MouseButton.RIGHT) {
+		if game_step != .Animating && rl.IsMouseButtonPressed(rl.MouseButton.RIGHT) {
 			inject_at(&events, 0, Event{
 				e_type = .Alt_Click,
 				flags = set_flags + {},
@@ -348,7 +350,7 @@ main :: proc() {
 
 		mouseWheelMovement := rl.GetMouseWheelMove()
 
-		if mouseWheelMovement != 0 {
+		if game_step != .Animating && mouseWheelMovement != 0 {
 			inject_at(&events, 0, Event{
 				e_type = .Scroll,
 				flags = set_flags + {},
@@ -373,6 +375,8 @@ main :: proc() {
 		prev_step:int = step
 		if runStep {
 			// run game step
+			step += 1
+			run_step()
 		}
 		step_delta = step - prev_step
 
@@ -403,7 +407,7 @@ init_game :: proc() {
 
 start_game :: proc() {
 	game_state = .Running
-	game_step = .Init
+	set_game_step(.Init)
 
 	ending_won = false
 	ending_msg[0] = "You Lost."
@@ -453,6 +457,12 @@ game_log :: proc(msg:string) {
 	l_msg:string = strings.clone(msg, allocator = log_alloc)
 	append(&game_log_data, l_msg)
 	g_update_log()
+}
+
+run_step :: proc() {
+	if len(animations) > 0 {
+		an_run_animations()
+	}
 }
 
 set_mode :: proc(mode:Game_Mode) {
@@ -551,7 +561,7 @@ process_events :: proc() {
 						
 						if game_step == .Select {
 							for c in 0..<len(deck) {
-								if hit(event.pos, deck[c].display) {
+								if hit(event.pos, deck[c].hit) {
 									if .Selected in deck[c].status {
 										deck[c].status -= { .Selected }
 										for i := len(player.play.cards) - 1; i >= 0; i -= 1 {
@@ -583,7 +593,7 @@ process_events :: proc() {
 
 					has_action:bool = false
 					for c in 0..<len(deck) {
-						if hit (event.pos, deck[c].display) {
+						if hit (event.pos, deck[c].hit) {
 							if board.help_card_display < 0 {
 								board.help_card_display = c
 								has_action = true
@@ -642,6 +652,11 @@ roll :: proc() -> int {
 	return int(math.ceil(rand.float32() * 6))
 }
 
+set_game_step :: proc(new_step:Game_Step) {
+	prev_game_step = game_step
+	game_step = new_step
+}
+
 run_game_step :: proc() {
 	if game_state == .Running {
 		switch game_step {
@@ -651,6 +666,13 @@ run_game_step :: proc() {
 				if len(player.play.cards) <= 0 {
 					game_log("You must play at least one card.")
 				} else {
+					play_round()
+				}
+
+			case .Animating:
+				if animation_trigger_cards {
+
+					animation_trigger_cards = false
 
 					if game_hand > 1 {
 						game_log("---")
@@ -662,15 +684,16 @@ run_game_step :: proc() {
 						game_log(lg_line)
 					}
 
-					play_round()
+					score_round()
 
 					prev_log_len = len(game_log_data)
 
 					board.island_log_scroll.y = -1
 
-					game_step = .Play
-				}
+					set_game_step(.Play)
 
+				} 
+			
 			case .Init, .Play:
 
 				if game_step == .Play {
@@ -707,10 +730,10 @@ run_game_step :: proc() {
 				game_hand += 1
 
 				if game_hand > GAME_END_HAND {
-					game_step = .End
+					set_game_step(.End)
 					end_this_game()
 				} else {
-					game_step = .Select
+					set_game_step(.Select)
 				}
 
 				board.island_log_scroll.y = -1
@@ -772,6 +795,24 @@ end_this_game :: proc() {
 }
 
 play_round :: proc() {
+	if game_step == .Select {
+		set_game_step(.Animating)
+		animation_trigger_cards = false
+		for c in 0..<len(player.play.cards) {
+			t_pos := g_get_card_pos(player.play.mode, c, 1)
+			t_pos.x += card_dw * 0.5
+			t_pos.y += card_dh * 0.5
+			an_move_card(player.play.cards[c], { deck[player.play.cards[c]].display.x, deck[player.play.cards[c]].display.y }, t_pos, c * 5)
+		}
+		for c in 0..<len(dealer.play.cards) {
+			an_flip_card(dealer.play.cards[c], c * 5)
+		}
+	} else {
+		set_game_step(.Play)
+	}
+}
+
+score_round :: proc() {
 
 	if dealer.play.mode == .Spell {
 		cast_play(&dealer.play, -1)

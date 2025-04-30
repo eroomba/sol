@@ -117,7 +117,8 @@ Card_Status :: enum {
     Discarded,
     Selected,
     Flipped,
-    Played
+    Played,
+    Animating
 }
 
 Card :: struct {
@@ -127,7 +128,9 @@ Card :: struct {
     selected:bool,
     status:bit_set[Card_Status],
     owner:int,
-    display:rl.Rectangle
+    display:rl.Rectangle,
+    hit:rl.Rectangle,
+    rotation:f32
 }
 
 Card_Play :: struct{
@@ -152,7 +155,9 @@ init_deck :: proc() {
                 selected = false,
                 status = { .Draw },
                 owner = -1,
-                display = { -1, -1, 0, 0 }
+                display = { -1, -1, 0, 0 },
+                hit = { -1, -1, 0, 0 },
+                rotation = 0
             }
             append(&draw,i)
             i += 1
@@ -168,6 +173,8 @@ reset_deck :: proc() {
         deck[i].owner = -1
         deck[i].status = { .Draw }
         deck[i].display = { -1, -1, 0, 0 }
+        deck[i].hit = { -1, -1, 0, 0 }
+        deck[i].rotation = 0
         append(&draw, i)
     }
     shuffle()
@@ -193,6 +200,8 @@ restock :: proc() {
                 deck[i].owner = -1
                 deck[i].selected = false
                 deck[i].display = { -1, -1, 0, 0 }
+                deck[i].hit = { -1, -1, 0, 0 }
+                deck[i].rotation = 0
             }
         }
     }
@@ -210,7 +219,9 @@ discard :: proc(c_idx:int) {
     deck[c_idx].status = { .Discarded }
     deck[c_idx].owner = -1
     deck[c_idx].selected = false
-    deck[c_idx].display = { -1, -1, 0, 0 }
+    deck[c_idx].display = { -1, -1, 1, 1 }
+    deck[c_idx].hit = { -1, -1, 0, 0 }
+    deck[c_idx].rotation = 0
 }
 
 new_play :: proc(direction:int, mode:Card_Mode) -> Card_Play {
@@ -230,6 +241,8 @@ deal :: proc() {
             deck[d_idx].owner = player.id
             deck[d_idx].selected = false
             deck[d_idx].display = { -1, -1, 0, 0 }
+            deck[d_idx].hit = { -1, -1, 0, 0 }
+            deck[d_idx].rotation = 0
          }
 
          if len(dealer.play.cards) < dealer.hand_size {
@@ -239,8 +252,12 @@ deal :: proc() {
             deck[d_idx].owner = dealer.id
             deck[d_idx].selected = false
             deck[d_idx].display = { -1, -1, 0, 0 }
+            deck[d_idx].hit = { -1, -1, 0, 0 }
+            deck[d_idx].rotation = 0
          }
     }
+
+    g_update_card_display()
 }
 
 spell_name :: proc(c_idx:int) -> string {
