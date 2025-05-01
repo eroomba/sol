@@ -303,11 +303,9 @@ main :: proc() {
 
 			on_card:bool = false
 			for c in 0..<len(deck) {
-				if hit(mouse_pos, deck[c].display) {
+				if hit(mouse_pos, deck[c].hit) && deck[c].owner == player.id {
 					on_card = true
-					board.hover_card_power = deck[c].power
-					board.hover_card_suit = suit_name(c)
-					board.hover_card_spell = spell_name(c)
+					board.hover_card_idx = c
 				}
 			}
 			if on_card {
@@ -854,6 +852,8 @@ setup_round :: proc() {
 
 score_round :: proc() {
 
+	pre_tally:int = player.score
+
 	if dealer.play.mode == .Spell {
 		cast_play(&dealer.play, -1)
 	} else {
@@ -892,6 +892,23 @@ score_round :: proc() {
 		if .Selected in deck[player.play.cards[c]].status {
 			deck[player.play.cards[c]].status -= { .Selected }
 		}
+	}
+
+	tally_change:int = player.score - pre_tally
+	if tally_change != 0 {
+		disp_color:[3]u8 = [3]u8{ 255, 255, 255 }
+		t_fs:f32 = board.info_font_size
+		t_x:f32 = board.player_info.x + board.player_info.width + (board.card_padding)
+		t_y:f32 = board.player_info.y + (board.player_info.height * 0.5) - (t_fs * 0.5)
+		if tally_change < 0 {
+			disp_color = [3]u8{220, 0, 0}
+		} else {
+			disp_color = [3]u8{0, 220, 0}
+		}
+		sign_str:string = tally_change < 0 ? "-" : "+"
+		s_txt:string = fmt.aprintf("%s%d", sign_str, math.abs(tally_change), allocator = graph_alloc)
+		defer delete(s_txt, allocator = graph_alloc)
+		an_score_display(s_txt, { t_x, t_y }, t_fs, disp_color)
 	}
 
 }

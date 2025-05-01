@@ -12,7 +12,8 @@ import rl "vendor:raylib"
 Animation_Type :: enum {
     Basic,
     Card,
-    Icon
+    Icon,
+    Score
 }
 
 Animation_Step :: struct {
@@ -38,12 +39,11 @@ Animation :: struct {
 }
 
 animations := make([dynamic]Animation)
-card_animations:int = 0
-icon_animations:int = 0
-
+animation_cache:[10]string
+ac_index:int = 0
 
 init_animations :: proc() {
-
+  
 }
 
 end_animations :: proc() {
@@ -81,7 +81,6 @@ an_draw_animation :: proc(a:int) {
                     deck[c_idx].rotation = animations[a].end_step.rotation
                     deck[c_idx].opacity = animations[a].end_step.opacity
                     deck[c_idx].status -= { .Animating }
-                    card_animations -= 1
                 } else {
                     curr_step := pop(&animations[a].steps)
                     deck[c_idx].display = { curr_step.pos.x, curr_step.pos.y, curr_step.scale.x, curr_step.scale.y }
@@ -94,6 +93,30 @@ an_draw_animation :: proc(a:int) {
             }
 
         case .Icon:
+            
+        case .Score:
+            if len(animations[a].steps) == 0 {
+                rem_idx:int = int(animations[a].params[0])
+                animations[a].status = .Ended
+            } else {
+                ch_idx:int = int(animations[a].params[0])
+                curr_step := pop(&animations[a].steps)
+                sc_font_size:f32 = animations[a].params[4]
+                d_str := strings.clone_to_cstring(animation_cache[ch_idx], allocator = graph_alloc)
+                defer delete(d_str, allocator = graph_alloc)
+                r_p:f32 = sc_font_size * 0.2
+                r_x:f32 = curr_step.pos.x
+                r_y:f32 = curr_step.pos.y - r_p
+                r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
+                r_w:f32 = r_size.x + (2 * r_p)
+                r_h:f32 = r_size.y + (2 * r_p)
+                scr_color:rl.Color = { u8(animations[a].params[1]), u8(animations[a].params[2]), u8(animations[a].params[3]), u8(255 * curr_step.opacity) }
+                r_color:rl.Color = { 10, 10, 10, 255 }
+                rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
+                rl.DrawRectangleRec({ r_x, r_y, r_w * 0.25, r_h }, r_color)
+                rl.DrawTriangle({ r_x, r_y }, { board.player_info.x + board.player_info.width - r_p, r_y + (r_h * 0.5) }, { r_x, r_y + r_h }, r_color)
+                rl.DrawTextEx(font, d_str, { curr_step.pos.x, curr_step.pos.y }, animations[a].params[4], 0, scr_color)
+            }
 
             
     }
@@ -171,7 +194,6 @@ an_move_card :: proc(c_idx:int, start_pos:rl.Vector2, end_pos:rl.Vector2, length
         deck[c_idx].status += { .Animating }
     }
 
-    card_animations += 1
 }
 
 an_flip_card :: proc(c_idx:int, offset:int = 0) {
@@ -232,7 +254,6 @@ an_flip_card :: proc(c_idx:int, offset:int = 0) {
         deck[c_idx].status += { .Animating }
     }
 
-    card_animations += 1
 }
 
 an_discard_card :: proc(c_idx:int, offset:int) {
@@ -288,5 +309,64 @@ an_discard_card :: proc(c_idx:int, offset:int) {
         deck[c_idx].status += { .Animating }
     }
 
-    card_animations += 1
+}
+
+an_score_display :: proc(disp:string, pos:rl.Vector2, font_size:f32, color:[3]u8 = [3]u8{ 255, 255, 255 }) {
+    ch_idx:int = ac_index
+    ac_index = ac_index + 1 >= len(animation_cache) ? 0 : ac_index + 1
+    animation_cache[ch_idx] = strings.clone(disp)
+
+    length1:int = 100
+    length2:int = 80
+
+    append(&animations, Animation{
+        type = .Score,
+        status = .Running,
+        start = step,
+        end_step = Animation_Step{
+            pos = rl.Vector2{ -1, -1 },
+            scale = rl.Vector2{ 0, 0 },
+            rotation = 0,
+            opacity = 1
+        },
+        params = [10]f32{
+            f32(ch_idx),
+            f32(color[0]), f32(color[1]), f32(color[2]), 
+            font_size, 
+            0, 0, 0, 0, 0
+        },
+        steps = make([dynamic]Animation_Step)
+    })
+    a_idx := len(animations) - 1
+
+    c_x:f32 = pos.x
+    c_y:f32 = pos.y
+    c_op:f32 = 1
+
+    for st in 0..<length1 {
+        inject_at(&animations[a_idx].steps, 0, Animation_Step{
+            pos = rl.Vector2{ c_x, c_y },
+            scale = rl.Vector2{ 1, 1 },
+            rotation = 0,
+            opacity = c_op
+        })
+    }
+
+    op_change:f32 = 1 / f32(length2)
+    y_change:f32 = (board.info_font_size) / f32(length2)
+
+    for st in 0..<length2 {
+        inject_at(&animations[a_idx].steps, 0, Animation_Step{
+            pos = rl.Vector2{ c_x, c_y },
+            scale = rl.Vector2{ 1, 1 },
+            rotation = 0,
+            opacity = c_op
+        })
+        c_y -= y_change
+        c_op -= op_change
+        if c_op < 0 {
+            c_op = 0
+        }
+    }
+
 }

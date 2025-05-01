@@ -288,11 +288,20 @@ g_draw_tooltips :: proc() {
         if .Opened in tool_tips[i].status {
             fill_str := fmt.aprintf(tool_tips[i].text, allocator = graph_alloc)
             defer delete (fill_str, allocator = graph_alloc)
+            rel_x:f32 = 0
+            rel_y:f32 = 0
+            rel_w:f32 = 0
+            rel_h:f32 = 0
             switch tool_tips[i].id {
                 case "ModePeople", "ModeWealth", "ModeScore":
                     fill_str = fmt.aprintf(tool_tips[i].text, game_mode_targets[int(game_mode)], allocator = graph_alloc)
                 case "CardHover":
-                    fill_str = fmt.aprintf(tool_tips[i].text, board.hover_card_power, board.hover_card_suit, board.hover_card_spell, allocator = graph_alloc)
+                    rel_x = deck[board.hover_card_idx].display.x
+                    rel_y = deck[board.hover_card_idx].display.y
+                    rel_w = deck[board.hover_card_idx].display.width
+                    rel_h = deck[board.hover_card_idx].display.height
+                    fill_str = fmt.aprintf(tool_tips[i].text, deck[board.hover_card_idx].power, suit_name(board.hover_card_idx), spell_name(board.hover_card_idx), allocator = graph_alloc)
+
             }
             tt_lines := wrap_lines(fill_str, -1, tt_f_size)
             tt_w:f32 = 0
@@ -314,6 +323,14 @@ g_draw_tooltips :: proc() {
             if .Follow in tool_tips[i].status {
                 tt_x = mouse_pos.x + tool_tips[i].pos.x
                 tt_y = mouse_pos.y + tool_tips[i].pos.y
+            } else if .Relative in tool_tips[i].status {
+                tt_x = rel_x + tool_tips[i].pos.x
+                tt_y = rel_y + tool_tips[i].pos.y
+                if tool_tips[i].id == "CardHover" {
+                    tt_x -= tt_w * 0.5
+                    tt_y = rel_y - (card_dh * 0.55)
+                }
+                tt_y -= tt_h
             }
             rl.DrawRectangleRounded({ tt_x, tt_y, tt_w, tt_h}, 0.1, 3, { 30, 30, 30, 220 })
             c_x:f32 = tt_x + (tt_f_size * 0.5)
@@ -321,7 +338,12 @@ g_draw_tooltips :: proc() {
             for j in 0..<len(tt_lines) {
                 c_txt := strings.clone_to_cstring(tt_lines[j], allocator = graph_alloc)
                 defer delete(c_txt, allocator = graph_alloc)
-                rl.DrawTextEx(font, c_txt, { c_x, c_y }, tt_f_size, 0, rl.WHITE)
+                sz := rl.MeasureTextEx(font, c_txt, tt_f_size, 0)
+                cc_x:f32 = c_x
+                if tool_tips[i].id == "CardHover" {
+                    cc_x = tt_x + (tt_w * 0.5) - (sz.x * 0.5)
+                }
+                rl.DrawTextEx(font, c_txt, { cc_x, c_y }, tt_f_size, 0, rl.WHITE)
                 c_y += tt_lh
             }
         }
@@ -535,17 +557,23 @@ g_draw_board :: proc() {
     
     p_tally:string = fmt.aprintf("Hand %d/%d   Player tally: %d", game_hand, GAME_END_HAND, player.score, allocator = graph_alloc)
     defer delete(p_tally, allocator = graph_alloc)
-    p_info_f_size:f32 = active_height * 0.03
+    p_info_f_size:f32 = board.info_font_size
     p_info := strings.clone_to_cstring(p_tally, allocator = graph_alloc)
     defer delete(p_info, allocator = graph_alloc)
     p_info_size := rl.MeasureTextEx(font, p_info, p_info_f_size, 0)
     p_info_x:f32 = board.player_map.x + (board.player_map.width * 0.5) - (p_info_size.x * 0.5)
-    p_info_y:f32 = board.player_info.y - p_info_size.y - (board.card_padding * 0.5)
+    p_info_y:f32 = (board.player_map.y - board.card_padding) - p_info_size.y - (board.card_padding * 0.5)
 
-    rl.DrawRectangleRounded({ p_info_x - board.card_padding, p_info_y - (board.card_padding * 0.5), p_info_size.x + (2 * board.card_padding), p_info_size.y + board.card_padding }, 0.2, 3, board_space_color)    
+    board.player_info.x = p_info_x - board.card_padding
+    board.player_info.y = p_info_y - (board.card_padding * 0.5)
+    board.player_info.width = p_info_size.x + (2 * board.card_padding)
+    board.player_info.height = p_info_size.y + board.card_padding
+
+    rl.DrawRectangleRounded(board.player_info, 0.2, 3, board_space_color)    
     rl.DrawTextEx(font, p_info, { p_info_x, p_info_y }, p_info_f_size, 0, rl.WHITE)
 
-    rl.DrawRectangleRoundedLinesEx(board.island_log, 0.2, 3, 4, { 16, 16, 16, 100 })
+    border_size:f32 = 4
+    rl.DrawRectangleRounded({board.island_log.x - border_size, board.island_log.y - border_size, board.island_log.width + (2 * border_size), board.island_log.height + (2 * border_size) }, 0.2, 3, { 16, 16, 16, 100 })
     rl.DrawRectangleRounded(board.island_log, 0.2, 3, { 16, 16, 16, 255 })
 
     lg_f_size:f32 = board.island_log_font_size

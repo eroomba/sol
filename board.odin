@@ -18,10 +18,9 @@ Board :: struct {
     height:f32,
 
     font_size:f32,
+    info_font_size:f32,
 
-    hover_card_power:int,
-    hover_card_suit:string,
-    hover_card_spell:string,
+    hover_card_idx:int,
 
     help_map_display:bool,
     help_card_display:int,
@@ -110,6 +109,7 @@ Board :: struct {
 Tool_Tip_Status :: enum {
     Opened,
     Follow,
+    Relative,
     Static
 }
 
@@ -125,10 +125,9 @@ board := Board{
     height = active_height,
 
     font_size = 10,
+    info_font_size = 12,
 
-    hover_card_power = 0,
-    hover_card_suit = "",
-    hover_card_spell = "",
+    hover_card_idx = -1,
 
     help_map_display = false,
     help_card_display = -1,
@@ -261,9 +260,9 @@ tool_tips := []Tool_Tip{
     },
     Tool_Tip{ // 5
         id = "CardHover",
-        pos = { tt_mouse_off, tt_mouse_off },
-        text = "%d of %s <br> %s <br> (Right-click for more info)",
-        status = bit_set[Tool_Tip_Status]{ .Follow }
+        pos = { 0, -0.5},
+        text = "%d of %s <br> %s",
+        status = bit_set[Tool_Tip_Status]{ .Relative }
     },
     Tool_Tip{ // 6
         id = "MapPopulation",
@@ -296,6 +295,7 @@ end_board :: proc() {
 calculate_board :: proc() {    
 
     board.font_size = math.ceil(active_height * 0.025)
+    board.info_font_size = active_height * 0.03
 
     board.button_font_size = active_height * 0.045
     board.button_padding = active_height * 0.02
