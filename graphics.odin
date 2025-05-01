@@ -460,6 +460,12 @@ g_draw_board :: proc() {
         }
     }
 
+    for c in 0..<len(deck) {
+        if .Animating in deck[c].status && .Discarded in deck[c].status {
+            g_draw_card(c)
+        }
+    }
+
     cd_x:f32 = board.suit_target_top.x
     cd_y:f32 = board.suit_target_top.y
 
@@ -1030,7 +1036,7 @@ g_draw_ending :: proc() {
 
 g_get_card_pos :: proc(mode:Card_Mode, num:int, player_deck:int) -> rl.Vector2 {
     cp_x:f32 = board.suit_target_bottom.x
-    cp_y:f32 = board.suit_target_bottom.y + board.card_padding
+    cp_y:f32 = board.suit_target_bottom.y
 
     if player_deck < 0 {
         cp_x = board.suit_target_top.x
@@ -1039,7 +1045,7 @@ g_get_card_pos :: proc(mode:Card_Mode, num:int, player_deck:int) -> rl.Vector2 {
 
     if mode == .Spell {
         cp_x = board.spell_target_bottom.x
-        cp_y = board.spell_target_bottom.y + board.card_padding
+        cp_y = board.spell_target_bottom.y
 
         if player_deck < 0 {
             cp_x = board.spell_target_top.x
@@ -1050,15 +1056,18 @@ g_get_card_pos :: proc(mode:Card_Mode, num:int, player_deck:int) -> rl.Vector2 {
     return rl.Vector2{ cp_x + (f32(num) * (card_dw + board.card_padding )), cp_y }
 }
 
-g_update_card_display :: proc() {
+g_update_card_display :: proc(show_cards:bool = true) {
     d_pos := g_get_card_pos(dealer.play.mode, 0, -1)
     c_x := d_pos.x
     c_y := d_pos.y
 
     for c in 0..<len(dealer.play.cards) {
-        deck[dealer.play.cards[c]].display = { c_x + (card_dw * 0.5), c_y + (card_dh * 0.5), 1, 1 }
-        deck[dealer.play.cards[c]].hit = { c_x, c_y, card_dw, card_dh }
-        deck[dealer.play.cards[c]].rotation = 0
+        if show_cards {
+            deck[dealer.play.cards[c]].display = { c_x + (card_dw * 0.5), c_y + (card_dh * 0.5), 1, 1 }
+            deck[dealer.play.cards[c]].hit = { -1, -1, 0, 0 }
+            deck[dealer.play.cards[c]].rotation = 0
+            deck[dealer.play.cards[c]].opacity = 1
+        }
         c_x += card_dw + board.card_padding
     }
 
@@ -1072,13 +1081,18 @@ g_update_card_display :: proc() {
     for c in 0..<len(player.hand) {
         if .Played in deck[player.hand[c]].status {
             deck[player.hand[c]].display = { p_cx + (card_dw * 0.5), p_cy + (card_dh * 0.5), 1, 1 }
-            deck[player.hand[c]].hit = { p_cx, p_cy, card_dw, card_dh }
+            deck[player.hand[c]].hit = { -1, -1, 0, 0 }
             deck[player.hand[c]].rotation = 0
             p_cx += card_dw + board.card_padding
         } else {
-            deck[player.hand[c]].display = { h_cx + (card_dw * 0.5), h_cy + (card_dh * 0.5), 1, 1 }
-            deck[player.hand[c]].hit = { h_cx, h_cy, card_dw, card_dh }
-            deck[player.hand[c]].rotation = 0
+            if show_cards {
+                if .Selected in deck[player.hand[c]].status {
+                    h_cy -= board.card_padding
+                }
+                deck[player.hand[c]].display = { h_cx + (card_dw * 0.5), h_cy + (card_dh * 0.5), 1, 1 }
+                deck[player.hand[c]].hit = { h_cx, h_cy, card_dw, card_dh }
+                deck[player.hand[c]].rotation = 0
+            }
             h_cx += card_dw + board.card_padding
         }
     }
@@ -1087,7 +1101,7 @@ g_update_card_display :: proc() {
 g_draw_card :: proc(idx:int) {
     if idx >= 0 && idx < len(deck) {
         card_vis:bool = true
-        if .Draw in deck[idx].status || .Discarded in deck[idx].status {
+        if .Draw in deck[idx].status || (.Discarded in deck[idx].status && deck[idx].display.width == 0 && deck[idx].display.height == 0 ) {
             card_vis = false
         }
 
@@ -1099,10 +1113,6 @@ g_draw_card :: proc(idx:int) {
             width:f32 = card_dw * deck[idx].display.width
             height:f32 = card_dh * deck[idx].display.height
             rot:f32 = deck[idx].rotation
-
-            if .Selected in deck[idx].status && !(.Animating in deck[idx].status) {
-                top -= board.card_padding
-            }
     
             c_idx:int = idx
     
@@ -1111,8 +1121,20 @@ g_draw_card :: proc(idx:int) {
             }
 
             deck[idx].hit = { left - (width * 0.5), top - (height * 0.5), width, height }
-    
-            rl.DrawTexturePro(card_textures[c_idx], { 0, 0, src_w, src_h }, { left, top, width, height }, { width * 0.5, height * 0.5 }, rot, rl.WHITE)
+
+            crd_op:u8 = u8(deck[idx].opacity * 255)
+            crd_color:rl.Color = { 255, 255, 255, crd_op }
+
+            edge_hw:f32 = 2
+            if width < 2 {
+                rl.DrawRectangleRounded({ left - edge_hw, top - (height * 0.5), edge_hw * 2, height }, 0.3, 3, crd_color)
+            } else if height < 2 {
+                rl.DrawRectangleRounded({ left - (width * 0.5), top - edge_hw, width, edge_hw * 2 }, 0.3, 3, crd_color)
+            } else {
+                rl.DrawTexturePro(card_textures[c_idx], { 0, 0, src_w, src_h }, { left, top, width, height }, { width * 0.5, height * 0.5 }, rot, crd_color)
+            }
+
+            deck[idx].last_draw = step
         }
     }
 }

@@ -34,7 +34,6 @@ Game_State :: enum {
 Game_Step :: enum {
 	Init,
 	Select,
-	Animating,
 	Play,
 	End
 }
@@ -148,9 +147,9 @@ main :: proc() {
     rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
 
-	start_w:i32 = 800
-	start_h:i32 = 800
-	go_full:bool = false
+	start_w:i32 = 0
+	start_h:i32 = 0
+	go_full:bool = true
 	rl.InitWindow(start_w, start_h, "cards")
 	if go_full {
 		rl.ToggleFullscreen()
@@ -330,7 +329,7 @@ main :: proc() {
 			}
 		}
 
-		if game_step != .Animating && rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
 			inject_at(&events, 0, Event{
 				e_type = .Click,
 				flags = set_flags + {},
@@ -339,7 +338,7 @@ main :: proc() {
 			})
 		}
 
-		if game_step != .Animating && rl.IsMouseButtonPressed(rl.MouseButton.RIGHT) {
+		if rl.IsMouseButtonPressed(rl.MouseButton.RIGHT) {
 			inject_at(&events, 0, Event{
 				e_type = .Alt_Click,
 				flags = set_flags + {},
@@ -350,7 +349,7 @@ main :: proc() {
 
 		mouseWheelMovement := rl.GetMouseWheelMove()
 
-		if game_step != .Animating && mouseWheelMovement != 0 {
+		if mouseWheelMovement != 0 {
 			inject_at(&events, 0, Event{
 				e_type = .Scroll,
 				flags = set_flags + {},
@@ -436,8 +435,6 @@ start_game :: proc() {
 	start_island()
 
 	reset_deck()
-
-	deal()
 
 	run_game_step()
 }
@@ -564,6 +561,8 @@ process_events :: proc() {
 								if hit(event.pos, deck[c].hit) {
 									if .Selected in deck[c].status {
 										deck[c].status -= { .Selected }
+										deck[c].display.y += board.card_padding
+										deck[c].hit.y += board.card_padding
 										for i := len(player.play.cards) - 1; i >= 0; i -= 1 {
 											if player.play.cards[i] == c {
 												ordered_remove(&player.play.cards, i) 
@@ -571,6 +570,8 @@ process_events :: proc() {
 										}
 									} else if len(player.play.cards) < 3 {
 										deck[c].status += { .Selected }
+										deck[c].display.y -= board.card_padding
+										deck[c].hit.y -= board.card_padding
 										append(&player.play.cards, c)
 									}
 								}
@@ -660,7 +661,6 @@ set_game_step :: proc(new_step:Game_Step) {
 run_game_step :: proc() {
 	if game_state == .Running {
 		switch game_step {
-
 			case .Select:
 
 				if len(player.play.cards) <= 0 {
@@ -668,79 +668,15 @@ run_game_step :: proc() {
 				} else {
 					play_round()
 				}
-
-			case .Animating:
-				if animation_trigger_cards {
-
-					animation_trigger_cards = false
-
-					if game_hand > 1 {
-						game_log("---")
-					}
-
-					if game_hand > 0 {
-						lg_line := fmt.aprintf("Hand %d...", game_hand, allocator = log_alloc)
-						defer delete(lg_line, allocator = log_alloc)
-						game_log(lg_line)
-					}
-
-					score_round()
-
-					prev_log_len = len(game_log_data)
-
-					board.island_log_scroll.y = -1
-
-					set_game_step(.Play)
-
-				} 
 			
 			case .Init, .Play:
 
-				if game_step == .Play {
-					for c:int = len(player.hand) - 1; c >= 0; c -= 1 {
-						if .Selected in deck[player.hand[c]].status {
-							rm_idx:int = player.hand[c]
-							discard(rm_idx)
-							ordered_remove(&player.hand, c)
-						}
-					}
-
-					clear(&player.play.cards)
-				
-					for len(dealer.play.cards) > 0 {
-						dc_idx:int = pop(&dealer.play.cards)
-						discard(dc_idx)
-					}
-				}
-
-				dealer_roll()
-
-				deal()
-				
-				if game_hand > 0 {
-					game_log("---")
-				}
-			
-				run_island()
-
-				log_change:int = len(game_log_data) - prev_log_len
-
-				prev_log_len = len(game_log_data)
-
-				game_hand += 1
-
-				if game_hand > GAME_END_HAND {
-					set_game_step(.End)
-					end_this_game()
-				} else {
-					set_game_step(.Select)
-				}
-
-				board.island_log_scroll.y = -1
+				setup_round()
 
 			case .End:
 		}
 	}
+
 }
 
 end_this_game :: proc() {
@@ -796,20 +732,124 @@ end_this_game :: proc() {
 
 play_round :: proc() {
 	if game_step == .Select {
-		set_game_step(.Animating)
-		animation_trigger_cards = false
+
 		for c in 0..<len(player.play.cards) {
 			t_pos := g_get_card_pos(player.play.mode, c, 1)
 			t_pos.x += card_dw * 0.5
 			t_pos.y += card_dh * 0.5
-			an_move_card(player.play.cards[c], { deck[player.play.cards[c]].display.x, deck[player.play.cards[c]].display.y }, t_pos, c * 5)
+			if .Selected in deck[player.play.cards[c]].status {
+				deck[player.play.cards[c]].status -= { .Selected }
+			}
+			s_x:f32 = deck[player.play.cards[c]].display.x
+			s_y:f32 = .Selected in deck[player.play.cards[c]].status ? deck[player.play.cards[c]].display.y - board.card_padding : deck[player.play.cards[c]].display.y
+			an_move_card(player.play.cards[c], { s_x, s_y }, t_pos, 26, c * 5)
 		}
 		for c in 0..<len(dealer.play.cards) {
 			an_flip_card(dealer.play.cards[c], c * 5)
 		}
-	} else {
+
+		if game_hand > 1 {
+			game_log("---")
+		}
+
+		if game_hand > 0 {
+			lg_line := fmt.aprintf("Hand %d...", game_hand, allocator = log_alloc)
+			defer delete(lg_line, allocator = log_alloc)
+			game_log(lg_line)
+		}
+
+		score_round()
+
+		prev_log_len = len(game_log_data)
+
+		board.island_log_scroll.y = -1
+
 		set_game_step(.Play)
+	} 
+}
+
+setup_round :: proc() {
+	if game_step == .Play {
+		for c:int = len(player.hand) - 1; c >= 0; c -= 1 {
+			if .Played in deck[player.hand[c]].status {
+				rm_idx:int = player.hand[c]
+				an_discard_card(rm_idx, 0)
+				discard(rm_idx)
+				ordered_remove(&player.hand, c)
+			}
+		}
+
+		clear(&player.play.cards)
+	
+		for len(dealer.play.cards) > 0 {
+			dc_idx:int = pop(&dealer.play.cards)
+			an_discard_card(dc_idx, 0)
+			discard(dc_idx)
+		}
 	}
+
+	dealer_roll()
+
+	deal()
+
+	if game_step == .Init {
+		g_update_card_display(true)
+	} else {
+		g_update_card_display(false)
+
+		dd_pos := g_get_card_pos(dealer.play.mode, 0, -1)
+		dd_x := dd_pos.x + (card_dw * 0.5)
+		dd_y := dd_pos.y + (card_dh * 0.5)
+		for c in 0..<len(dealer.play.cards) {
+			dc_idx := dealer.play.cards[c]
+			if deck[dc_idx].display.width == 0 && deck[dc_idx].display.width == 0 {
+				s_x:f32 = dd_x
+				s_y:f32 = active_y - card_dh * 0.6
+				e_x:f32 = s_x
+				e_y:f32 = dd_y
+				an_move_card(dc_idx, { s_x, s_y }, { e_x, e_y }, 16, c * 5)
+			}
+			dd_x += card_dw + board.card_padding
+		}
+
+		h_pos := board.player_hand_start
+		pp_x:f32 = h_pos.x + (card_dw * 0.5)
+		pp_y:f32 = h_pos.y + (card_dh * 0.5)
+		for c in 0..<len(player.hand) {
+			hc_idx := player.hand[c]
+			if deck[hc_idx].display.width == 0 && deck[hc_idx].display.width == 0 {
+				s_x:f32 = pp_x
+				s_y:f32 = (active_y + active_height) + card_dh * 0.6
+				e_x:f32 = s_x
+				e_y:f32 = pp_y
+				an_move_card(hc_idx, { s_x, s_y }, { e_x, e_y }, 16, c * 5)
+			} else if deck[hc_idx].display.x != pp_x {
+				an_move_card(hc_idx, { deck[hc_idx].display.x, deck[hc_idx].display.y }, { pp_x, deck[hc_idx].display.y }, 12, c * 5)
+			}
+			pp_x += card_dw + board.card_padding
+		}
+	}
+
+	if game_hand > 0 {
+		game_log("---")
+	}
+
+	run_island()
+
+	log_change:int = len(game_log_data) - prev_log_len
+
+	prev_log_len = len(game_log_data)
+
+	game_hand += 1
+
+	if game_hand > GAME_END_HAND {
+		set_game_step(.End)
+		end_this_game()
+	} else {
+		set_game_step(.Select)
+	} 
+
+	board.island_log_scroll.y = -1
 }
 
 score_round :: proc() {
@@ -849,6 +889,9 @@ score_round :: proc() {
 
 	for c in 0..<len(player.play.cards) {
 		deck[player.play.cards[c]].status += { .Played }
+		if .Selected in deck[player.play.cards[c]].status {
+			deck[player.play.cards[c]].status -= { .Selected }
+		}
 	}
 
 }

@@ -130,7 +130,9 @@ Card :: struct {
     owner:int,
     display:rl.Rectangle,
     hit:rl.Rectangle,
-    rotation:f32
+    rotation:f32,
+    opacity:f32,
+    last_draw:int
 }
 
 Card_Play :: struct{
@@ -157,7 +159,9 @@ init_deck :: proc() {
                 owner = -1,
                 display = { -1, -1, 0, 0 },
                 hit = { -1, -1, 0, 0 },
-                rotation = 0
+                rotation = 0,
+                opacity = 1,
+                last_draw = 0
             }
             append(&draw,i)
             i += 1
@@ -175,6 +179,7 @@ reset_deck :: proc() {
         deck[i].display = { -1, -1, 0, 0 }
         deck[i].hit = { -1, -1, 0, 0 }
         deck[i].rotation = 0
+        deck[i].opacity = 1
         append(&draw, i)
     }
     shuffle()
@@ -202,6 +207,7 @@ restock :: proc() {
                 deck[i].display = { -1, -1, 0, 0 }
                 deck[i].hit = { -1, -1, 0, 0 }
                 deck[i].rotation = 0
+                deck[i].opacity = 1
             }
         }
     }
@@ -216,12 +222,17 @@ draw_card :: proc() -> int {
 }
 
 discard :: proc(c_idx:int) {
-    deck[c_idx].status = { .Discarded }
+    if .Animating in deck[c_idx].status {
+        deck[c_idx].status = { .Discarded, .Animating }
+    } else {
+        deck[c_idx].status = { .Discarded }
+        deck[c_idx].display = { -1, -1, 1, 1 }
+        deck[c_idx].rotation = 0
+        deck[c_idx].opacity = 1
+    }
     deck[c_idx].owner = -1
     deck[c_idx].selected = false
-    deck[c_idx].display = { -1, -1, 1, 1 }
     deck[c_idx].hit = { -1, -1, 0, 0 }
-    deck[c_idx].rotation = 0
 }
 
 new_play :: proc(direction:int, mode:Card_Mode) -> Card_Play {
@@ -232,7 +243,7 @@ new_play :: proc(direction:int, mode:Card_Mode) -> Card_Play {
     }
 }
 
-deal :: proc() {
+deal :: proc(animate:bool = false) {
     for i in 0..<PLAYER_HAND_SIZE {
         if len(player.hand) < PLAYER_HAND_SIZE {
             d_idx:int = draw_card()
@@ -243,6 +254,7 @@ deal :: proc() {
             deck[d_idx].display = { -1, -1, 0, 0 }
             deck[d_idx].hit = { -1, -1, 0, 0 }
             deck[d_idx].rotation = 0
+            deck[d_idx].opacity = 1
          }
 
          if len(dealer.play.cards) < dealer.hand_size {
@@ -254,10 +266,9 @@ deal :: proc() {
             deck[d_idx].display = { -1, -1, 0, 0 }
             deck[d_idx].hit = { -1, -1, 0, 0 }
             deck[d_idx].rotation = 0
+            deck[d_idx].opacity = 1
          }
     }
-
-    g_update_card_display()
 }
 
 spell_name :: proc(c_idx:int) -> string {
