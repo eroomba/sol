@@ -289,7 +289,9 @@ suit_name :: proc(c_idx:int, plural:bool = true) -> string {
     return "Unknown"
 }
 
-score_play :: proc(play:^Card_Play) -> int {
+score_play :: proc(play:^Card_Play) -> (int, string) {
+    ret_str:string = ""
+
 	if play.mode == .Suit {
 
 		score:int = 0
@@ -326,16 +328,19 @@ score_play :: proc(play:^Card_Play) -> int {
 
 		if p_count == p_len && p_len > 1 {
 			score *= p_len
+            ret_str = "Set"
 		} else if s_count == p_len && p_len > 1 {
 			score += high
+            ret_str = "Flush"
 		} else {
 			score = high
+            ret_str = "High Card"
 		}
 
-		return score
+		return score, ret_str
 	}
 
-	return 0
+	return 0, ""
 }
 
 cast_play :: proc(play:^Card_Play, dir:int) {

@@ -23,13 +23,11 @@ textures := make([dynamic]rl.Texture2D)
 images := make([dynamic]rl.Image)
 card_textures := make([dynamic]rl.Texture2D)
 instructions_texture:rl.Texture2D
+text_textures := make([dynamic]rl.Texture2D)
 back_idx:int = 0
 
 g_arena : vmem.Arena
 graph_alloc := vmem.arena_allocator(&g_arena)
-
-card_dw:f32 = active_width * 0.07 // math.floor((f32(250) / f32(350)) * card_dh)
-card_dh:f32 = math.floor((f32(350) / f32(250)) * card_dw)
 
 img_dice:int = -1
 img_card_layout:int = -1
@@ -51,6 +49,8 @@ dealer_dice_rot:f32 = 0
 
 src_card_width:f32 = 500
 src_card_height:f32 = 700
+
+load_images:bool = false
 
 board_space_color:rl.Color = { 100, 100, 100, 120 }
 
@@ -80,25 +80,19 @@ init_graphics :: proc() -> int {
     button_font = rl.LoadFont("./CharcuterieContrast.ttf")
     main_filter = rl.TextureFilter.BILINEAR
 
-    img_loader = #load("./images/cards_layout.png")
-	data_size = i32(len(img_loader))
-	append(&images, rl.LoadImageFromMemory(".png",&img_loader[0],data_size))
-    img_loader = []u8{}
+    append(&images, rl.LoadImage("./images/cards_layout.png"))
     img_card_layout = len(images) - 1
 
-    img_loader = #load("./images/spells_layout.png")
-	data_size = i32(len(img_loader))
-	append(&images, rl.LoadImageFromMemory(".png",&img_loader[0],data_size))
-    img_loader = []u8{}
+    append(&images, rl.LoadImage("./images/spells_layout.png"))
     img_spells = len(images) - 1
 
-    c_img:rl.Image = rl.GenImageColor(i32(card_dw), i32(card_dh), { 255, 255, 255, 0})
+    c_img:rl.Image = rl.GenImageColor(i32(board.card_dw), i32(board.card_dh), { 255, 255, 255, 0})
 
     for i in 0..<len(deck) {
 
         rl.ImageClearBackground(&c_img, { 255, 255, 255, 0 })
 
-        rl.ImageDraw(&c_img, images[img_card_layout], { 0, 0, src_card_width, src_card_height}, { 0, 0, card_dw, card_dh }, rl.WHITE)
+        rl.ImageDraw(&c_img, images[img_card_layout], { 0, 0, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, rl.WHITE)
 
         suit:int = deck[i].suit
         power:int = deck[i].power
@@ -113,39 +107,28 @@ init_graphics :: proc() -> int {
         sp_x:f32 = f32(spell - 1) * src_card_width
         sp_y:f32 = 0
 
-        rl.ImageDraw(&c_img, images[img_card_layout], { n_x, n_y, src_card_width, src_card_height}, { 0, 0, card_dw, card_dh }, suit_colors[suit])
-        rl.ImageDraw(&c_img, images[img_card_layout], { s_x, s_y, src_card_width, src_card_height}, { 0, 0, card_dw, card_dh }, suit_colors[suit])
-        rl.ImageDraw(&c_img, images[img_spells], { sp_x, sp_y, src_card_width, src_card_height}, { 0, 0, card_dw, card_dh }, rl.WHITE)
+        rl.ImageDraw(&c_img, images[img_card_layout], { n_x, n_y, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, suit_colors[suit])
+        rl.ImageDraw(&c_img, images[img_card_layout], { s_x, s_y, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, suit_colors[suit])
+        rl.ImageDraw(&c_img, images[img_spells], { sp_x, sp_y, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, rl.WHITE)
 
         append(&card_textures, rl.LoadTextureFromImage(c_img))
         rl.GenTextureMipmaps(&card_textures[i])
 	    rl.SetTextureFilter(card_textures[i], main_filter)
     }
 
-    img_loader = #load("./images/logo.png")
-	data_size = i32(len(img_loader))
-    ld_img:rl.Image = rl.LoadImageFromMemory(".png",&img_loader[0],data_size)
-    append(&textures, rl.LoadTextureFromImage(ld_img))
-    rl.UnloadImage(ld_img)
-    img_loader = []u8{}
+    ld_img:rl.Image
+
+    append(&textures, rl.LoadTexture("./images/logo.png"))
     txt_logo = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_logo])
 	rl.SetTextureFilter(textures[txt_logo], main_filter)
 
-    img_loader = #load("./images/maps/map001.png")
-	data_size = i32(len(img_loader))
-    ld_img = rl.LoadImageFromMemory(".png",&img_loader[0],data_size)
-    append(&textures, rl.LoadTextureFromImage(ld_img))
-    rl.UnloadImage(ld_img)
-    img_loader = []u8{}
+    append(&textures, rl.LoadTexture("./images/maps/map001.png"))
     txt_map = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_map])
 	rl.SetTextureFilter(textures[txt_map], main_filter)
 
-    img_loader = #load("./images/icons.png")
-	data_size = i32(len(img_loader))
-	append(&images, rl.LoadImageFromMemory(".png",&img_loader[0],data_size))
-    img_loader = []u8{}
+    append(&images, rl.LoadImage("./images/icons.png"))
     img_icons = len(images) - 1
     append(&textures, rl.LoadTextureFromImage(images[img_icons]))
     txt_icons = len(textures) - 1
@@ -153,27 +136,19 @@ init_graphics :: proc() -> int {
 	rl.SetTextureFilter(textures[txt_icons], main_filter)
 
     rl.ImageClearBackground(&c_img, { 255, 255, 255, 0 })
-    rl.ImageDraw(&c_img, images[img_card_layout], { src_card_width, 0, src_card_width, src_card_height}, { 0, 0, card_dw, card_dh }, rl.WHITE)
+    rl.ImageDraw(&c_img, images[img_card_layout], { src_card_width, 0, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, rl.WHITE)
     append(&card_textures, rl.LoadTextureFromImage(c_img))
     back_idx = len(card_textures) - 1
     rl.GenTextureMipmaps(&card_textures[back_idx])
 	rl.SetTextureFilter(card_textures[back_idx], main_filter)
 
-    img_loader = #load("./images/parchment.jpg")
-	data_size = i32(len(img_loader))
-    ld_img = rl.LoadImageFromMemory(".jpg",&img_loader[0],data_size)
-    append(&textures, rl.LoadTextureFromImage(ld_img))
-    rl.UnloadImage(ld_img)
-    img_loader = []u8{}
+    append(&textures, rl.LoadTexture("./images/parchment.jpg"))
     txt_bg = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_bg])
 	rl.SetTextureFilter(textures[txt_bg], main_filter)
 
     rl.UnloadImage(c_img)
-    img_loader = #load("./images/target_labels.png")
-	data_size = i32(len(img_loader))
-	c_img = rl.LoadImageFromMemory(".png",&img_loader[0],data_size)
-    img_loader = []u8{}
+    c_img = rl.LoadImage("./images/target_labels.png")
     c_img2 := rl.ImageFromImage(c_img, {0, 0, f32(c_img.width) * 0.5, f32(c_img.height) })
 
     append(&textures, rl.LoadTextureFromImage(c_img2))
@@ -213,10 +188,7 @@ init_graphics :: proc() -> int {
 
     rl.UnloadImage(tmp_i)
 
-    img_loader = #load("./images/dice.png")
-	data_size = i32(len(img_loader))
-	append(&images, rl.LoadImageFromMemory(".png",&img_loader[0],data_size))
-    img_loader = []u8{}
+    append(&images, rl.LoadImage("./images/dice.png"))
     img_dice = len(images) - 1
 
     g_update_log()
@@ -251,13 +223,42 @@ end_graphics :: proc() {
         rl.UnloadTexture(instructions_texture)
     }
 
+    for len(text_textures) > 0 {
+        rm_txt := pop(&text_textures)
+        rl.UnloadTexture(rm_txt)
+    }
+    delete(text_textures)
+
     rl.UnloadFont(font)
     rl.UnloadFont(button_font)
 	free_all(graph_alloc)
     vmem.arena_destroy(&g_arena)
 }
 
+
+g_draw_text :: proc(font:rl.Font, text:string, pos:rl.Vector2, font_size:f32, font_spacing:f32, color:rl.Color) {
+    t_cstr:cstring = strings.clone_to_cstring(text, allocator = graph_alloc)
+
+    t_size := rl.MeasureTextEx(font, t_cstr, font_size, font_spacing)
+    t_img := rl.GenImageColor(i32(math.ceil(t_size.x)), i32(math.ceil(t_size.y)), { 255, 255, 255, 0 })
+    rl.ImageDrawTextEx(&t_img, font, t_cstr, { 0, 0 }, font_size, font_spacing, color)
+    append(&text_textures, rl.LoadTextureFromImage(t_img))
+    t_idx:int = len(text_textures) - 1
+    rl.UnloadImage(t_img)
+
+    rl.GenTextureMipmaps(&textures[txt_icons])
+	rl.SetTextureFilter(textures[txt_icons], main_filter)
+    rl.DrawTexturePro(text_textures[t_idx], { 0, 0, f32(text_textures[t_idx].width), f32(text_textures[t_idx].height) }, { pos.x, pos.y, t_size.x, t_size.y }, { 0, 0 }, 0, rl.WHITE)
+
+    delete(t_cstr, allocator = graph_alloc)
+}
+
 g_draw_game :: proc() {
+
+    for len(text_textures) > 0 {
+        rm_txt := pop(&text_textures)
+        rl.UnloadTexture(rm_txt)
+    }
 
     if game_state == .Title {
         g_draw_title()
@@ -330,7 +331,7 @@ g_draw_tooltips :: proc() {
                 tt_y = rel_y + tool_tips[i].pos.y
                 if tool_tips[i].id == "CardHover" {
                     tt_x -= tt_w * 0.5
-                    tt_y = rel_y - (card_dh * 0.55)
+                    tt_y = rel_y - (board.card_dh * 0.55)
                 }
                 tt_y -= tt_h
             }
@@ -345,7 +346,8 @@ g_draw_tooltips :: proc() {
                 if tool_tips[i].id == "CardHover" {
                     cc_x = tt_x + (tt_w * 0.5) - (sz.x * 0.5)
                 }
-                rl.DrawTextEx(font, c_txt, { cc_x, c_y }, tt_f_size, 0, rl.WHITE)
+                //rl.DrawTextEx(font, c_txt, { cc_x, c_y }, tt_f_size, 0, rl.WHITE)
+                g_draw_text(font, tt_lines[j], { cc_x, c_y }, tt_f_size, 0, rl.WHITE)
                 c_y += tt_lh
             }
         }
@@ -460,7 +462,7 @@ g_draw_board :: proc() {
 
     for c in 0..<len(player.hand) {
         if player.hand[c] >= 0 {
-            p_board_w += card_dw + board.card_padding
+            p_board_w += board.card_dw + board.card_padding
         }
     }
     board.player_hand.width = p_board_w + board.card_padding
@@ -473,7 +475,7 @@ g_draw_board :: proc() {
     for c in 0..<len(player.hand) {
         if player.hand[c] >= 0 {
             g_draw_card(player.hand[c])
-            c_x += card_dw + board.card_padding      
+            c_x += board.card_dw + board.card_padding      
         }
     }
 
@@ -488,7 +490,7 @@ g_draw_board :: proc() {
     for c in 0..<len(player.play.cards) {
         if player.play.cards[c] >= 0 {
             g_draw_card(player.play.cards[c])
-            cp_x += card_dw + board.card_padding      
+            cp_x += board.card_dw + board.card_padding      
         }
     }
 
@@ -508,7 +510,7 @@ g_draw_board :: proc() {
 
     for c in 0..<len(dealer.play.cards) {
         g_draw_card(dealer.play.cards[c])
-        cd_x += card_dw + board.card_padding  
+        cd_x += board.card_dw + board.card_padding  
     }
 
     p_button_f_size:f32 = board.button_font_size
@@ -528,7 +530,8 @@ g_draw_board :: proc() {
     bc_idx:int = .Highlighted in board.play_button_status ? 1 : 0
 
     rl.DrawRectangleRounded({ pb_x, pb_y, pb_w, pb_h }, 0.3, 5, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, p_button_txt, { pbt_x, pbt_y }, p_button_f_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, p_button_txt, { pbt_x, pbt_y }, p_button_f_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(p_button_txt), { pbt_x, pbt_y }, p_button_f_size, board.button_font_spacing, rl.WHITE)
 
     board.play_button = { pb_x, pb_y, pb_w, pb_h }
 
@@ -561,7 +564,8 @@ g_draw_board :: proc() {
     map_click_sz := rl.MeasureTextEx(font, map_click, map_click_fs, 0)
     map_click_x:f32 = board.player_map.x + (board.player_map.width * 0.97) - map_click_sz.x
     map_click_y:f32 = board.player_map.y + (board.player_map.height * 0.97) - map_click_sz.y
-    rl.DrawTextEx(font, map_click, { map_click_x, map_click_y }, map_click_fs, 0, rl.WHITE)
+    //rl.DrawTextEx(font, map_click, { map_click_x, map_click_y }, map_click_fs, 0, rl.WHITE)
+    g_draw_text(font, string(map_click), { map_click_x, map_click_y }, map_click_fs, 0, rl.WHITE)
 
     g_draw_map_tally()
     
@@ -580,7 +584,8 @@ g_draw_board :: proc() {
     board.player_info.height = p_info_size.y + board.card_padding
 
     rl.DrawRectangleRounded(board.player_info, 0.2, 3, board_space_color)    
-    rl.DrawTextEx(font, p_info, { p_info_x, p_info_y }, p_info_f_size, 0, rl.WHITE)
+    //rl.DrawTextEx(font, p_info, { p_info_x, p_info_y }, p_info_f_size, 0, rl.WHITE)
+    g_draw_text(font, p_tally, { p_info_x, p_info_y }, p_info_f_size, 0, rl.WHITE)
 
     border_size:f32 = 4
     rl.DrawRectangleRounded({board.island_log.x - border_size, board.island_log.y - border_size, board.island_log.width + (2 * border_size), board.island_log.height + (2 * border_size) }, 0.2, 3, { 16, 16, 16, 100 })
@@ -712,8 +717,8 @@ g_draw_modal :: proc() {
 g_draw_card_info :: proc() {
     if board.help_card_display >= 0 {
         ci_pad:f32 = board.padding
-        ci_cw:f32 = card_dw * 1.5
-        ci_ch:f32 = card_dh * 1.5
+        ci_cw:f32 = board.card_dw * 1.5
+        ci_ch:f32 = board.card_dh * 1.5
 
         card_info:rl.Rectangle = { 0, 0, 0, 0 }
         card_info.width = (6 * ci_pad) + ci_cw
@@ -758,19 +763,22 @@ g_draw_card_info :: proc() {
         ci_curr_y := card_disp.y + card_disp.height
 
         suit_info_x:f32 = (active_width * 0.5) - (s_i_size.x * 0.5)
-        rl.DrawTextEx(font, suit_info, { suit_info_x, ci_curr_y }, s_i_font_size, 0, suit_colors[deck[c_idx].suit])
+        //rl.DrawTextEx(font, suit_info, { suit_info_x, ci_curr_y }, s_i_font_size, 0, suit_colors[deck[c_idx].suit])
+        g_draw_text(font, suit_info_s, { suit_info_x, ci_curr_y }, s_i_font_size, 0, suit_colors[deck[c_idx].suit])
 
         ci_curr_y += s_i_size.y + board.font_size
 
         sp_info_x:f32 = ci_txt_x // (active_width * 0.5) - (sp_i_size.x * 0.5)
-        rl.DrawTextEx(font, spell_name, { sp_info_x, ci_curr_y }, s_i_font_size, 0, rl.WHITE)
+        //rl.DrawTextEx(font, spell_name, { sp_info_x, ci_curr_y }, s_i_font_size, 0, rl.WHITE)
+        g_draw_text(font, string(spell_name), { sp_info_x, ci_curr_y }, s_i_font_size, 0, rl.WHITE)
 
         ci_curr_y += sp_i_size.y
 
         for i in 0..<len(i_lines) {
             i_line_c := strings.clone_to_cstring(i_lines[i], allocator = graph_alloc)
             defer delete(i_line_c, allocator = graph_alloc)
-            rl.DrawTextEx(font, i_line_c, { ci_txt_x, ci_curr_y }, board.font_size, 0, rl.WHITE)
+            //rl.DrawTextEx(font, i_line_c, { ci_txt_x, ci_curr_y }, board.font_size, 0, rl.WHITE)
+            g_draw_text(font, i_lines[i], { ci_txt_x, ci_curr_y }, board.font_size, 0, rl.WHITE)
             ci_curr_y += ci_lh
         }
 
@@ -811,7 +819,8 @@ g_draw_map_help :: proc() {
 
         for i in 1..=10 {
             rl.DrawTexturePro(textures[txt_icons], { f32((i - 1) * 100), 0, 100, 100 }, { c_x, c_y, icon_s, icon_s }, { 0, 0 }, 0, rl.WHITE)
-            rl.DrawTextEx(font, area_effect_desc[i], { c_x + icon_s + hlp_pad, c_y + ((icon_s - hlp_txt_h) * 0.5)}, board.font_size, 0, rl.WHITE)
+            //rl.DrawTextEx(font, area_effect_desc[i], { c_x + icon_s + hlp_pad, c_y + ((icon_s - hlp_txt_h) * 0.5)}, board.font_size, 0, rl.WHITE)
+            g_draw_text(font, string(area_effect_desc[i]), { c_x + icon_s + hlp_pad, c_y + ((icon_s - hlp_txt_h) * 0.5)}, board.font_size, 0, rl.WHITE)
 
             c_y += icon_s + hlp_pad
         }
@@ -944,15 +953,18 @@ g_draw_title :: proc() {
 
     bc_idx:int = .Highlighted in board.start_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.start_button, 0.3, 6, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.start_button_text, { board.start_button.x + (3 * board.button_padding), board.start_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.start_button_text, { board.start_button.x + (3 * board.button_padding), board.start_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.start_button_text), { board.start_button.x + (3 * board.button_padding), board.start_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 
     bc_idx = .Highlighted in board.exit_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.exit_button, 0.3, 6, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.exit_button_text, { board.exit_button.x + (3 * board.button_padding), board.exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.exit_button_text, { board.exit_button.x + (3 * board.button_padding), board.exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.exit_button_text), { board.exit_button.x + (3 * board.button_padding), board.exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 
     bc_idx = .Highlighted in board.rules_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.rules_button, 0.3, 3, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.rules_button_text, { board.rules_button.x + (2 * board.button_padding), board.rules_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.rules_button_text, { board.rules_button.x + (2 * board.button_padding), board.rules_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.rules_button_text), { board.rules_button.x + (2 * board.button_padding), board.rules_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 
     bc_idx_m_1:int = .Active in board.mode_buttons_status[0] ? 3 : 2
     bc_idx_m_2:int = .Active in board.mode_buttons_status[1] ? 3 : 2
@@ -972,7 +984,8 @@ g_draw_title :: proc() {
 
         bmb_y = board.mode_buttons[i].y + (board.mode_buttons[i].height * 0.5) - (bmb_t_h * 0.5)
         
-        rl.DrawTextEx(button_font, board.mode_buttons_text[i], { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+        //rl.DrawTextEx(button_font, board.mode_buttons_text[i], { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+        g_draw_text(button_font, string(board.mode_buttons_text[i]), { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
     }
 
     bc_idx_m_1 = .Active in board.level_buttons_status[0] ? 3 : 2
@@ -993,7 +1006,8 @@ g_draw_title :: proc() {
 
         bmb_y = board.level_buttons[i].y + (board.level_buttons[i].height * 0.5) - (bmb_t_h * 0.5)
         
-        rl.DrawTextEx(button_font, board.level_buttons_text[i], { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+        //rl.DrawTextEx(button_font, board.level_buttons_text[i], { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+        g_draw_text(button_font, string(board.level_buttons_text[i]), { bmb_x, bmb_y }, board.button_font_size, board.button_font_spacing, rl.WHITE)
     }
 }
 
@@ -1031,7 +1045,8 @@ g_draw_rules :: proc() {
 
     bc_idx:int = .Highlighted in board.continue_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.continue_button, 0.3, 6, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.continue_button_text, { board.continue_button.x + (2 * board.button_padding), board.continue_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.continue_button_text, { board.continue_button.x + (2 * board.button_padding), board.continue_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.continue_button_text), { board.continue_button.x + (2 * board.button_padding), board.continue_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 }
 
 g_draw_ending :: proc() {
@@ -1058,17 +1073,21 @@ g_draw_ending :: proc() {
     win_txt1_x:f32 = (active_width * 0.5) - (win_txt1_size.x * 0.5)
     win_txt2_x:f32 = (active_width * 0.5) - (win_txt2_size.x * 0.5)
 
-    rl.DrawTextEx(font, win_txt1, { win_txt1_x, win_txt1_y}, win_txt1_f_s, 0, rl.WHITE)
-    rl.DrawTextEx(font, win_txt2, { win_txt2_x, win_txt2_y}, win_txt2_f_s, 0, rl.WHITE)
+    //rl.DrawTextEx(font, win_txt1, { win_txt1_x, win_txt1_y}, win_txt1_f_s, 0, rl.WHITE)
+    g_draw_text(font, ending_msg[0], { win_txt1_x, win_txt1_y}, win_txt1_f_s, 0, rl.WHITE)
+    //rl.DrawTextEx(font, win_txt2, { win_txt2_x, win_txt2_y}, win_txt2_f_s, 0, rl.WHITE)
+    g_draw_text(font, ending_msg[1], { win_txt2_x, win_txt2_y}, win_txt2_f_s, 0, rl.WHITE)
 
 
     bc_idx:int = .Highlighted in board.ending_exit_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.ending_exit_button, 0.3, 6, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.ending_exit_button_text, { board.ending_exit_button.x + (2 * board.button_padding), board.ending_exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.ending_exit_button_text, { board.ending_exit_button.x + (2 * board.button_padding), board.ending_exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.ending_exit_button_text), { board.ending_exit_button.x + (2 * board.button_padding), board.ending_exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 
     bc_idx = .Highlighted in board.ending_restart_button_status ? 1 : 0
     rl.DrawRectangleRounded(board.ending_restart_button, 0.3, 6, button_colors[bc_idx])
-    rl.DrawTextEx(button_font, board.ending_restart_button_text, { board.ending_restart_button.x + (2 * board.button_padding), board.ending_restart_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    //rl.DrawTextEx(button_font, board.ending_restart_button_text, { board.ending_restart_button.x + (2 * board.button_padding), board.ending_restart_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+    g_draw_text(button_font, string(board.ending_restart_button_text), { board.ending_restart_button.x + (2 * board.button_padding), board.ending_restart_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
 
 }
 
@@ -1091,7 +1110,7 @@ g_get_card_pos :: proc(mode:Card_Mode, num:int, player_deck:int) -> rl.Vector2 {
         }
     }
 
-    return rl.Vector2{ cp_x + (f32(num) * (card_dw + board.card_padding )), cp_y }
+    return rl.Vector2{ cp_x + (f32(num) * (board.card_dw + board.card_padding )), cp_y }
 }
 
 g_update_card_display :: proc(show_cards:bool = true) {
@@ -1101,12 +1120,12 @@ g_update_card_display :: proc(show_cards:bool = true) {
 
     for c in 0..<len(dealer.play.cards) {
         if show_cards {
-            deck[dealer.play.cards[c]].display = { c_x + (card_dw * 0.5), c_y + (card_dh * 0.5), 1, 1 }
+            deck[dealer.play.cards[c]].display = { c_x + (board.card_dw * 0.5), c_y + (board.card_dh * 0.5), 1, 1 }
             deck[dealer.play.cards[c]].hit = { -1, -1, 0, 0 }
             deck[dealer.play.cards[c]].rotation = 0
             deck[dealer.play.cards[c]].opacity = 1
         }
-        c_x += card_dw + board.card_padding
+        c_x += board.card_dw + board.card_padding
     }
 
     h_pos := board.player_hand_start
@@ -1118,20 +1137,20 @@ g_update_card_display :: proc(show_cards:bool = true) {
 
     for c in 0..<len(player.hand) {
         if .Played in deck[player.hand[c]].status {
-            deck[player.hand[c]].display = { p_cx + (card_dw * 0.5), p_cy + (card_dh * 0.5), 1, 1 }
+            deck[player.hand[c]].display = { p_cx + (board.card_dw * 0.5), p_cy + (board.card_dh * 0.5), 1, 1 }
             deck[player.hand[c]].hit = { -1, -1, 0, 0 }
             deck[player.hand[c]].rotation = 0
-            p_cx += card_dw + board.card_padding
+            p_cx += board.card_dw + board.card_padding
         } else {
             if show_cards {
                 if .Selected in deck[player.hand[c]].status {
                     h_cy -= board.card_padding
                 }
-                deck[player.hand[c]].display = { h_cx + (card_dw * 0.5), h_cy + (card_dh * 0.5), 1, 1 }
-                deck[player.hand[c]].hit = { h_cx, h_cy, card_dw, card_dh }
+                deck[player.hand[c]].display = { h_cx + (board.card_dw * 0.5), h_cy + (board.card_dh * 0.5), 1, 1 }
+                deck[player.hand[c]].hit = { h_cx, h_cy, board.card_dw, board.card_dh }
                 deck[player.hand[c]].rotation = 0
             }
-            h_cx += card_dw + board.card_padding
+            h_cx += board.card_dw + board.card_padding
         }
     }
 }
@@ -1148,8 +1167,8 @@ g_draw_card :: proc(idx:int) {
             src_h:f32 = f32(card_textures[idx].height)
             left:f32 = deck[idx].display.x
             top:f32 = deck[idx].display.y
-            width:f32 = card_dw * deck[idx].display.width
-            height:f32 = card_dh * deck[idx].display.height
+            width:f32 = board.card_dw * deck[idx].display.width
+            height:f32 = board.card_dh * deck[idx].display.height
             rot:f32 = deck[idx].rotation
     
             c_idx:int = idx

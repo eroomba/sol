@@ -22,6 +22,9 @@ Board :: struct {
 
     hover_card_idx:int,
 
+    card_dw:f32,
+    card_dh:f32,
+
     help_map_display:bool,
     help_card_display:int,
     modal:rl.Rectangle,
@@ -128,6 +131,8 @@ board := Board{
     info_font_size = 12,
 
     hover_card_idx = -1,
+    card_dw = active_width * 0.07,
+    card_dh = math.floor((f32(350) / f32(250)) * (active_width * 0.07)),
 
     help_map_display = false,
     help_card_display = -1,
@@ -299,15 +304,13 @@ calculate_board :: proc() {
 
     board.button_font_size = active_height * 0.045
     board.button_padding = active_height * 0.02
+    board.button_font_spacing = 0
 
     board.island_log_font_size = active_height * 0.02 < 10 ? 10 : active_height * 0.02
     board.island_log_line_padding = board.island_log_font_size * 0.25 < 3 ? 3 : board.island_log_font_size * 0.25
 
     board.padding = math.floor(active_width * 0.02)
     board.card_padding = math.floor(active_width * 0.01)
-
-    card_dw = active_width * 0.07
-    card_dh = math.floor((f32(350) / f32(250)) * card_dw)
 
     cx:f32 = active_x + board.padding
     cy:f32 = active_y + board.padding
@@ -423,16 +426,16 @@ calculate_board :: proc() {
 
     board.targets.x = cx
     board.targets.y = cy
-    board.targets.height = (3 * board.card_padding) + (2 * card_dh)
+    board.targets.height = (3 * board.card_padding) + (2 * board.card_dh)
 
     board.suit_target.x = active_x + cx
     board.suit_target.y = cy
-    board.suit_target.width = (8 * board.card_padding) + (3 * card_dw)
-    board.suit_target.height = (3 * board.card_padding) + (2 * card_dh)
+    board.suit_target.width = (8 * board.card_padding) + (3 * board.card_dw)
+    board.suit_target.height = (3 * board.card_padding) + (2 * board.card_dh)
     board.suit_target_top.x = board.suit_target.x + (4 * board.card_padding)
     board.suit_target_top.y = board.suit_target.y + board.card_padding
     board.suit_target_bottom.x = board.suit_target_top.x
-    board.suit_target_bottom.y = board.suit_target_top.y + card_dh + board.card_padding
+    board.suit_target_bottom.y = board.suit_target_top.y + board.card_dh + board.card_padding
 
     board.spell_target.x = board.suit_target.x + board.suit_target.width + board.padding
     board.spell_target.y = board.suit_target.y
@@ -441,12 +444,12 @@ calculate_board :: proc() {
     board.spell_target_top.x = board.spell_target.x + (4 * board.card_padding)
     board.spell_target_top.y = board.spell_target.y + board.card_padding
     board.spell_target_bottom.x = board.spell_target_top.x
-    board.spell_target_bottom.y = board.spell_target_top.y + card_dh + board.card_padding
+    board.spell_target_bottom.y = board.spell_target_top.y + board.card_dh + board.card_padding
 
     board.targets.width = board.suit_target.width + board.spell_target.width + board.card_padding
 
-    board.player_hand.width = (5 * card_dw) + (8 * board.card_padding)
-    board.player_hand.height = card_dh + (4 * board.card_padding)
+    board.player_hand.width = (5 * board.card_dw) + (8 * board.card_padding)
+    board.player_hand.height = board.card_dh + (4 * board.card_padding)
 
     if board.player_hand.width < board.targets.width {
         board.player_hand.x = board.targets.x + ((board.targets.width - board.player_hand.width) * 0.5)

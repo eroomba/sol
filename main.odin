@@ -556,7 +556,7 @@ process_events :: proc() {
 						
 						if game_step == .Select {
 							for c in 0..<len(deck) {
-								if hit(event.pos, deck[c].hit) {
+								if hit(event.pos, deck[c].hit) && deck[c].owner == player.id {
 									if .Selected in deck[c].status {
 										deck[c].status -= { .Selected }
 										deck[c].display.y += board.card_padding
@@ -592,7 +592,7 @@ process_events :: proc() {
 
 					has_action:bool = false
 					for c in 0..<len(deck) {
-						if hit (event.pos, deck[c].hit) {
+						if hit (event.pos, deck[c].hit) && deck[c].owner == player.id {
 							if board.help_card_display < 0 {
 								board.help_card_display = c
 								has_action = true
@@ -733,14 +733,14 @@ play_round :: proc() {
 
 		for c in 0..<len(player.play.cards) {
 			t_pos := g_get_card_pos(player.play.mode, c, 1)
-			t_pos.x += card_dw * 0.5
-			t_pos.y += card_dh * 0.5
+			t_pos.x += board.card_dw * 0.5
+			t_pos.y += board.card_dh * 0.5
 			if .Selected in deck[player.play.cards[c]].status {
 				deck[player.play.cards[c]].status -= { .Selected }
 			}
 			s_x:f32 = deck[player.play.cards[c]].display.x
 			s_y:f32 = .Selected in deck[player.play.cards[c]].status ? deck[player.play.cards[c]].display.y - board.card_padding : deck[player.play.cards[c]].display.y
-			an_move_card(player.play.cards[c], { s_x, s_y }, t_pos, 26, c * 5)
+			an_move_card(player.play.cards[c], { s_x, s_y }, t_pos, A_LEN_CARD_PLAY, c * 5)
 		}
 		for c in 0..<len(dealer.play.cards) {
 			an_flip_card(dealer.play.cards[c], c * 5)
@@ -796,35 +796,35 @@ setup_round :: proc() {
 		g_update_card_display(false)
 
 		dd_pos := g_get_card_pos(dealer.play.mode, 0, -1)
-		dd_x := dd_pos.x + (card_dw * 0.5)
-		dd_y := dd_pos.y + (card_dh * 0.5)
+		dd_x := dd_pos.x + (board.card_dw * 0.5)
+		dd_y := dd_pos.y + (board.card_dh * 0.5)
 		for c in 0..<len(dealer.play.cards) {
 			dc_idx := dealer.play.cards[c]
 			if deck[dc_idx].display.width == 0 && deck[dc_idx].display.width == 0 {
 				s_x:f32 = dd_x
-				s_y:f32 = active_y - card_dh * 0.6
+				s_y:f32 = active_y - board.card_dh * 0.6
 				e_x:f32 = s_x
 				e_y:f32 = dd_y
 				an_move_card(dc_idx, { s_x, s_y }, { e_x, e_y }, 16, c * 5)
 			}
-			dd_x += card_dw + board.card_padding
+			dd_x += board.card_dw + board.card_padding
 		}
 
 		h_pos := board.player_hand_start
-		pp_x:f32 = h_pos.x + (card_dw * 0.5)
-		pp_y:f32 = h_pos.y + (card_dh * 0.5)
+		pp_x:f32 = h_pos.x + (board.card_dw * 0.5)
+		pp_y:f32 = h_pos.y + (board.card_dh * 0.5)
 		for c in 0..<len(player.hand) {
 			hc_idx := player.hand[c]
 			if deck[hc_idx].display.width == 0 && deck[hc_idx].display.width == 0 {
 				s_x:f32 = pp_x
-				s_y:f32 = (active_y + active_height) + card_dh * 0.6
+				s_y:f32 = (active_y + active_height) + board.card_dh * 0.6
 				e_x:f32 = s_x
 				e_y:f32 = pp_y
 				an_move_card(hc_idx, { s_x, s_y }, { e_x, e_y }, 16, c * 5)
 			} else if deck[hc_idx].display.x != pp_x {
-				an_move_card(hc_idx, { deck[hc_idx].display.x, deck[hc_idx].display.y }, { pp_x, deck[hc_idx].display.y }, 12, c * 5)
+				an_move_card(hc_idx, { deck[hc_idx].display.x, deck[hc_idx].display.y }, { pp_x, deck[hc_idx].display.y }, A_LEN_CARD_DEAL, c * 5)
 			}
-			pp_x += card_dw + board.card_padding
+			pp_x += board.card_dw + board.card_padding
 		}
 	}
 
@@ -857,12 +857,12 @@ score_round :: proc() {
 	if dealer.play.mode == .Spell {
 		cast_play(&dealer.play, -1)
 	} else {
-		d_score:int = score_play(&dealer.play)
+		d_score, d_play := score_play(&dealer.play)
 		player.score -= d_score
 		if d_score == 0 {
 			game_log("The deck's play resulted in no changes.")
 		} else {
-			lg_line := fmt.aprintf("The deck's play removed %d from your tally.", d_score, allocator = log_alloc)
+			lg_line := fmt.aprintf("The deck's %s removed %d from your tally.", d_play, d_score, allocator = log_alloc)
 			defer delete(lg_line, allocator = log_alloc)
 			game_log(lg_line)
 		}
@@ -871,12 +871,12 @@ score_round :: proc() {
 	if player.play.mode == .Spell {
 		cast_play(&player.play, 1)
 	} else {
-		d_score:int = score_play(&player.play)
+		d_score, d_play := score_play(&player.play)
 		player.score += d_score
 		if d_score == 0 {
 			game_log("Your play resulted in no changes.")
 		} else {
-			lg_line := fmt.aprintf("Your play added %d to your tally.", d_score, allocator = log_alloc)
+			lg_line := fmt.aprintf("Your %s added %d to your tally.", d_play, d_score, allocator = log_alloc)
 			defer delete(lg_line, allocator = log_alloc)
 			game_log(lg_line)
 		}
@@ -908,7 +908,7 @@ score_round :: proc() {
 		sign_str:string = tally_change < 0 ? "-" : "+"
 		s_txt:string = fmt.aprintf("%s%d", sign_str, math.abs(tally_change), allocator = graph_alloc)
 		defer delete(s_txt, allocator = graph_alloc)
-		an_score_display(s_txt, { t_x, t_y }, t_fs, disp_color)
+		an_score_display(s_txt, { t_x, t_y }, A_LEN_TALLY_DISP, A_LEN_CARD_PLAY, t_fs, disp_color)
 	}
 
 }
