@@ -147,9 +147,9 @@ main :: proc() {
     rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
 
-	start_w:i32 = 0
-	start_h:i32 = 0
-	go_full:bool = true
+	start_w:i32 = i32(screen_width)
+	start_h:i32 = i32(screen_height)
+	go_full:bool = false
 	rl.InitWindow(start_w, start_h, "cards")
 	if go_full {
 		rl.ToggleFullscreen()

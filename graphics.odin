@@ -278,6 +278,8 @@ g_draw_game :: proc() {
 
     g_draw_tooltips()
 
+    g_draw_bars()
+
     free_all(graph_alloc)
 }
 
@@ -352,6 +354,14 @@ g_draw_tooltips :: proc() {
 
 g_draw_background :: proc() {
     rl.DrawTexturePro(textures[txt_bg], { 0, 0, f32(textures[txt_bg].width), f32(textures[txt_bg].height) }, { active_x, active_y, active_width, active_height }, { 0, 0 }, 0, rl.WHITE)
+}
+
+g_draw_bars :: proc() {
+    if screen_height > active_height {
+        b_h:f32 = (screen_height - active_height) * 0.5
+        rl.DrawRectangleRec({ 0, 0, screen_width, b_h }, rl.BLACK)
+        rl.DrawRectangleRec({ 0, active_y + active_height, screen_width, b_h }, rl.BLACK)
+    }
 }
 
 g_draw_board :: proc() {

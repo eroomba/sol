@@ -316,7 +316,7 @@ calculate_board :: proc() {
     sb_p:f32 = active_width * 0.005
 
     sb_x:f32 = active_x + (active_width - sb_w - sb_p)
-    sb_y:f32 = sb_p
+    sb_y:f32 = active_y + sb_p
 
     board.settings_button = { sb_x, sb_y, sb_w, sb_w }
 
