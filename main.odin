@@ -860,7 +860,15 @@ score_round :: proc() {
 	pre_tally:int = player.score
 
 	if dealer.play.mode == .Spell {
-		cast_play(&dealer.play, -1)
+		res := cast_play(&dealer.play, -1)
+		sp_x:f32 = board.spell_target_top.x + (board.card_dw * 0.5)
+		sp_y:f32 = board.spell_target_top.y + (board.card_dh * 0.5)
+		for c in 0..<len(dealer.play.cards) {
+			if len(res[c]) > 0 {
+				an_score_display(res[c], { sp_x, sp_y }, A_LEN_SUIT_PLAY, A_LEN_CARD_PLAY, board.font_size, [3]u8{ 255, 255, 255 }, false, true)
+			}
+			sp_x += board.card_dw + board.card_padding
+		}
 	} else {
 		d_score, d_play := score_play(&dealer.play)
 		player.score -= d_score
@@ -870,11 +878,23 @@ score_round :: proc() {
 			lg_line := fmt.aprintf("The deck's %s removed %d from your tally.", d_play, d_score, allocator = log_alloc)
 			defer delete(lg_line, allocator = log_alloc)
 			game_log(lg_line)
+
+			disp_line := fmt.aprintf("%s: %d", d_play, d_score, allocator = log_alloc)
+			defer delete(disp_line, allocator = log_alloc)
+			an_play_display(disp_line, Card_Mode.Suit, 0, A_LEN_SUIT_PLAY, A_LEN_CARD_PLAY)
 		}
 	}
 
 	if player.play.mode == .Spell {
-		cast_play(&player.play, 1)
+		res := cast_play(&player.play, 1)
+		sp_x:f32 = board.spell_target_bottom.x + (board.card_dw * 0.5)
+		sp_y:f32 = board.spell_target_bottom.y + (board.card_dh * 0.5)
+		for c in 0..<len(player.play.cards) {
+			if len(res[c]) > 0 {
+				an_score_display(res[c], { sp_x, sp_y }, A_LEN_SUIT_PLAY, A_LEN_CARD_PLAY, board.font_size, [3]u8{ 255, 255, 255 }, false, true)
+			}
+			sp_x += board.card_dw + board.card_padding
+		}
 	} else {
 		d_score, d_play := score_play(&player.play)
 		player.score += d_score
@@ -884,6 +904,10 @@ score_round :: proc() {
 			lg_line := fmt.aprintf("Your %s added %d to your tally.", d_play, d_score, allocator = log_alloc)
 			defer delete(lg_line, allocator = log_alloc)
 			game_log(lg_line)
+
+			disp_line := fmt.aprintf("%s: %d", d_play, d_score, allocator = log_alloc)
+			defer delete(disp_line, allocator = log_alloc)
+			an_play_display(disp_line, Card_Mode.Suit, 1, A_LEN_SUIT_PLAY, A_LEN_CARD_PLAY)
 		}
 	}
 
@@ -913,7 +937,7 @@ score_round :: proc() {
 		sign_str:string = tally_change < 0 ? "-" : "+"
 		s_txt:string = fmt.aprintf("%s%d", sign_str, math.abs(tally_change), allocator = graph_alloc)
 		defer delete(s_txt, allocator = graph_alloc)
-		an_score_display(s_txt, { t_x, t_y }, A_LEN_TALLY_DISP, A_LEN_CARD_PLAY, t_fs, disp_color)
+		an_score_display(s_txt, { t_x, t_y }, A_LEN_TALLY_DISP, A_LEN_CARD_PLAY, t_fs, disp_color, true)
 	}
 
 }

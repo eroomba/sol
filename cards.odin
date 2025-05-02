@@ -343,7 +343,9 @@ score_play :: proc(play:^Card_Play) -> (int, string) {
 	return 0, ""
 }
 
-cast_play :: proc(play:^Card_Play, dir:int) {
+cast_play :: proc(play:^Card_Play, dir:int) -> [3]string {
+    ret_vals:[3]string
+
 	if play.mode == .Spell {
         sp_mult:int = 1
         delta_pop:int = 0
@@ -402,6 +404,7 @@ cast_play :: proc(play:^Card_Play, dir:int) {
         }
         
         for c in 0..<len(play.cards) {
+            ret_vals[c] = ""
             switch deck[play.cards[c]].spell {
                 case 1:
                     // Teleport : +score population
@@ -411,12 +414,14 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                         lg_line := fmt.aprintf("%s Teleport took %d people.", play_name, d_pop, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "OH NO!"
                     } else {
                         d_pop := player.score * sp_mult
                         island.population += d_pop
                         lg_line := fmt.aprintf("%s Teleport brought %d people.", play_name, d_pop, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "PEOPLE!"
                     }
                 case 2:
                     // Transmogrify : +SCORE food
@@ -426,12 +431,14 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                         lg_line := fmt.aprintf("%s Transmogrify lost %d food.", play_name, d_food, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "BAD NEWS"
                     } else {
                         d_food := player.score * sp_mult
                         island.food += d_food
                         lg_line := fmt.aprintf("%s Transmogrify created %d food.", play_name, d_food, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "FOOD!"
                     }
                 case 3:
                     // Transmute : +SCORE money
@@ -441,12 +448,14 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                         lg_line := fmt.aprintf("%s Transmute destroyed %d coin.", play_name, d_money, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "CURSES!"
                     } else {
                         d_money := player.score * sp_mult
                         island.money += d_money
                         lg_line := fmt.aprintf("%s Transmute created %d coin.", play_name, d_money, allocator = log_alloc)
                         defer delete(lg_line, allocator = log_alloc)
                         game_log(lg_line)
+                        ret_vals[c] = "COIN!"
                     }
                 case 4:
                     // Storm : -Fire, +Flood; attack: 0.85
@@ -462,15 +471,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                 lg_line := fmt.aprintf("%s Storm flooded the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FLOOD!"
                             } else {
                                 lg_line := fmt.aprintf("%s Storm failed.", play_name, allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FAILED"
                             }
                         } else {
                             lg_line := fmt.aprintf("%s Storm put out the fire in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                             defer delete(lg_line, allocator = log_alloc)
                             game_log(lg_line)
+                            ret_vals[c] = "SUCCESS!"
                         }
                     }
                 case 5:
@@ -486,16 +498,19 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                             if att {
                                 lg_line := fmt.aprintf("%s Invigorate created a Fervor in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
+                                ret_vals[c] = "FERVOR!"
                             game_log(lg_line)
                             } else {
                                 lg_line := fmt.aprintf("%s Invigorate failed.", play_name, allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FAILED"
                             }
                         } else {
                             lg_line := fmt.aprintf("%s Invigorate healed the Sickness in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                             defer delete(lg_line, allocator = log_alloc)
                             game_log(lg_line)
+                            ret_vals[c] = "HEALED!"
                         }
                     }
                 case 6:
@@ -512,15 +527,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                 lg_line := fmt.aprintf("%s Growth created Sickness in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "SICKNESS..."
                             } else {
                                 lg_line := fmt.aprintf("%s Growth failed.", play_name, allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FAILED"
                             }
                         } else {
                             lg_line := fmt.aprintf("%s Growth ended the Famine in %s!", play_name, island_area_names[a_idx], allocator = log_alloc)
                             defer delete(lg_line, allocator = log_alloc)
                             game_log(lg_line)
+                            ret_vals[c] = "SUCCESS!"
                         }
                     }
                 case 7:
@@ -537,15 +555,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                 lg_line := fmt.aprintf("%s Evaporate created Famine in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FAMINE"
                             } else {
                                 lg_line := fmt.aprintf("%s Evaporate failed.", play_name, allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "FAILED"
                             }
                         } else {
                             lg_line := fmt.aprintf("%s Evaporate dried the Flood in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                             defer delete(lg_line, allocator = log_alloc)
                             game_log(lg_line)
+                            ret_vals[c] = "DRIED!"
                         }
                     }
                 case 8:
@@ -563,15 +584,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Luck began a War in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "WAR..."
                                 } else {
                                     lg_line := fmt.aprintf("%s Luck failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Luck expelled the Bandits from the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "SUCCESS!"
                             }
                         } else {
                             fixed:bool = false
@@ -585,15 +609,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Luck brought Fortune to the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FORTUNE!"
                                 } else {
                                     lg_line := fmt.aprintf("%s Luck failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Luck ended the Rain in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "NO RAIN"
                             }
                         }
                     }
@@ -612,15 +639,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Calm allowed Bandits to arrive in the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "BANDITS"
                                 } else {
                                     lg_line := fmt.aprintf("%s Calm failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Calm ended the Fervor in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "CALMED"
                             }
                         } else {
                             fixed:bool = false
@@ -634,15 +664,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Calm brought Peace to the %d.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "PEACE"
                                 } else {
                                     lg_line := fmt.aprintf("%s Calm failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Calm ended the War in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "NO WAR!"
                             }
                         }
                     }
@@ -661,15 +694,18 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Chaos brought Rain to the %s", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "RAIN!"
                                 } else {
                                     lg_line := fmt.aprintf("%s Chaos failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Chaos ended the Fortune in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "LOSS"
                             }
                         } else {
                             fixed:bool = false
@@ -683,21 +719,26 @@ cast_play :: proc(play:^Card_Play, dir:int) {
                                     lg_line := fmt.aprintf("%s Chaos started Fire in the %d.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FIRE!"
                                 } else {
                                     lg_line := fmt.aprintf("%s Chaos failed.", play_name, allocator = log_alloc)
                                     defer delete(lg_line, allocator = log_alloc)
                                     game_log(lg_line)
+                                    ret_vals[c] = "FAILED"
                                 }
                             } else {
                                 lg_line := fmt.aprintf("%s Calm ended the Peace in the %s.", play_name, island_area_names[a_idx], allocator = log_alloc)
                                 defer delete(lg_line, allocator = log_alloc)
                                 game_log(lg_line)
+                                ret_vals[c] = "UNREST"
                             }
                         }
                     }
             }
         }
     }
+
+    return ret_vals
 }
 
 island_fix :: proc(effect:Area_Effects, check:[4]int) -> (bool, int) {

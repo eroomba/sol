@@ -856,14 +856,14 @@ g_draw_map_tally :: proc(mode: = 0) {
     if game_mode == .People {
         i_pop_s = fmt.aprintf("%d/%d", island.population, game_mode_targets[int(game_mode)], allocator = graph_alloc)
         if island.population < game_mode_targets[int(game_mode)] {
-            i_pop_c = { 200, 0, 0, 255 }
+            i_pop_c = { 255, 0, 0, 255 }
         } else if island.population > game_mode_targets[int(game_mode)] {
             i_pop_c = { 0, 200, 0, 255 }
         }
     } 
 
     if island.food < island.population {
-        i_food_c = { 200, 0, 0, 255 }
+        i_food_c = { 255, 0, 0, 255 }
     }
 
     if game_mode == .Wealth {
@@ -930,12 +930,19 @@ g_draw_map_tally :: proc(mode: = 0) {
     map_count_cx += tally_f_size * 0.8
     rl.ImageDrawTextEx(&map_count_img, font, i_money, { map_count_cx, 0 }, tally_f_size, 0, i_money_c)
     map_count_cx += i_money_w
- 
+
     rl.UnloadTexture(textures[txt_map_count])
     textures[txt_map_count] = rl.LoadTextureFromImage(map_count_img)
     tally_size.height = map_count_h
     tally_size.x -= (map_count_w * 0.5) 
     tally_size.width = map_count_w
+
+    if mode == 0 {
+        tsp_pad:f32 = tally_f_size * 0.25
+        tally_space:rl.Rectangle = { tally_size.x - tsp_pad, tally_size.y - tsp_pad, tally_size.width + (2 * tsp_pad), tally_size.height + (2 * tsp_pad) }
+        rl.DrawRectangleRounded(tally_space, 0.1, 3, { 37, 42, 75, 150 })
+    }
+
     rl.DrawTexturePro(textures[txt_map_count], { 0, 0, map_count_w, map_count_h }, tally_size, { 0, 0 }, 0, rl.WHITE)
     rl.UnloadImage(map_count_img)
 

@@ -14,8 +14,8 @@ A_LEN_CARD_DEAL:int : 30
 A_LEN_CARD_DISCARD:int : 14
 A_LEN_CARD_FLIP:int : 30
 A_LEN_TALLY_DISP:int : 180
-A_LEN_SUIT_PLAY:int : 180
-A_LEN_SPELL_PLAY:int : 180
+A_LEN_SUIT_PLAY:int : 120
+A_LEN_SPELL_PLAY:int : 120
 
 Animation_Type :: enum {
     Basic,
@@ -133,22 +133,53 @@ an_draw_animation :: proc(a:int) {
                         animations[a].status = .Ended
                     } else {
                         ch_idx:int = int(animations[a].params[0])
+                        center:bool = animations[a].params[5] == 1 ? true : false
                         curr_step := pop(&animations[a].steps)
                         sc_font_size:f32 = animations[a].params[4]
                         d_str := strings.clone_to_cstring(animations[a].str_param, allocator = graph_alloc)
                         defer delete(d_str, allocator = graph_alloc)
-                        r_p:f32 = sc_font_size * 0.2
-                        r_x:f32 = curr_step.pos.x
-                        r_y:f32 = curr_step.pos.y - r_p
-                        r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
-                        r_w:f32 = r_size.x + (2 * r_p)
-                        r_h:f32 = r_size.y + (2 * r_p)
                         scr_color:rl.Color = { u8(animations[a].params[1]), u8(animations[a].params[2]), u8(animations[a].params[3]), u8(255 * curr_step.opacity) }
-                        r_color:rl.Color = { 10, 10, 10, 255 }
-                        rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
-                        rl.DrawRectangleRec({ r_x, r_y, r_w * 0.25, r_h }, r_color)
-                        rl.DrawTriangle({ r_x, r_y }, { board.player_info.x + board.player_info.width - r_p, r_y + (r_h * 0.5) }, { r_x, r_y + r_h }, r_color)
-                        rl.DrawTextEx(font, d_str, { curr_step.pos.x, curr_step.pos.y }, animations[a].params[4], 0, scr_color)
+                        r_color:rl.Color = { 10, 10, 10, u8(255 * curr_step.opacity) }
+
+                        tx_x:f32 = curr_step.pos.x
+                        tx_y:f32 = curr_step.pos.y 
+
+                        if animations[a].params[1] == 1 {
+                            r_p:f32 = sc_font_size * 0.2
+                            r_x:f32 = curr_step.pos.x
+                            r_y:f32 = curr_step.pos.y - r_p
+                            r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
+                            if center == true {
+                                r_x -= r_size.x * 0.5
+                                tx_x -= r_size.x * 0.5
+                                r_y -= r_size.y * 0.5
+                                tx_y -= r_size.y * 0.5
+                            }
+                            r_w:f32 = r_size.x + (2 * r_p)
+                            r_h:f32 = r_size.y + (2 * r_p)
+                            rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
+                            rl.DrawRectangleRec({ r_x, r_y, r_w * 0.25, r_h }, r_color)
+                            rl.DrawTriangle({ r_x, r_y }, { board.player_info.x + board.player_info.width - r_p, r_y + (r_h * 0.5) }, { r_x, r_y + r_h }, r_color)
+                        } else {
+                            r_p:f32 = sc_font_size * 0.2
+                            r_x:f32 = curr_step.pos.x - (r_p * 2)
+                            r_y:f32 = curr_step.pos.y - r_p
+                            r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
+                            if center == true {
+                                r_x -= r_size.x * 0.5
+                                tx_x -= r_size.x * 0.5
+                                r_y -= r_size.y * 0.5
+                                tx_y -= r_size.y * 0.5
+                            }
+                            r_w:f32 = r_size.x + (4 * r_p)
+                            r_h:f32 = r_size.y + (2 * r_p)
+                            if math.abs(r_w - board.card_dw) < 5 {
+                                r_w += board.card_dw * 0.2
+                                r_x -= board.card_dw * 0.1
+                            }
+                            rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
+                        }
+                        rl.DrawTextEx(font, d_str, { tx_x, tx_y }, animations[a].params[4], 0, scr_color)
                     }
                 }
             }
@@ -347,10 +378,12 @@ an_discard_card :: proc(c_idx:int, offset:int) {
 
 }
 
-an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, font_size:f32, color:[3]u8 = [3]u8{ 255, 255, 255 }) {
+an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, font_size:f32, color:[3]u8, rise:bool, center:bool = false) {
 
     length1:int = int(f32(length) * 0.55)
     length2:int = int(f32(length) * 0.45)
+
+    center_prams:f32 = center == true ? 1 : 0
 
     append(&animations, Animation{
         type = .Score,
@@ -363,10 +396,11 @@ an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, fo
             opacity = 1
         },
         params = [10]f32{
-            0,
+            1,
             f32(color[0]), f32(color[1]), f32(color[2]), 
             font_size, 
-            0, 0, 0, 0, 0
+            center_prams, 
+            0, 0, 0, 0
         },
         str_param = strings.clone(disp),
         steps = make([dynamic]Animation_Step)
@@ -396,7 +430,96 @@ an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, fo
             rotation = 0,
             opacity = c_op
         })
-        c_y -= y_change
+        if rise {
+            c_y -= y_change
+        }
+        c_op -= op_change
+        if c_op < 0 {
+            c_op = 0
+        }
+    }
+
+}
+
+an_play_display :: proc(disp:string, mode:Card_Mode, top_bottom:int, length:int, offset:int) {
+
+    length1:int = int(f32(length) * 0.75)
+    length2:int = int(f32(length) * 0.25)
+
+    c_x:f32 = board.suit_target_top.x
+    c_y:f32 = board.suit_target_top.y
+
+    font_size:f32 = board.font_size * 1.25
+
+    if mode == .Spell {
+        c_x = board.spell_target_top.x
+        c_y = board.spell_target_top.y
+    }
+
+    if top_bottom == 1 {
+        c_x = board.suit_target_bottom.x
+        c_y = board.suit_target_bottom.y
+
+        if mode == .Spell {
+            c_x = board.spell_target_bottom.x
+            c_y = board.spell_target_bottom.y
+        }
+    }
+
+    c_y += board.card_dh * 0.5
+    if top_bottom == 1 {
+        c_x += ((board.card_dw * f32(len(player.play.cards))) + (board.card_padding * (f32(len(player.play.cards) - 1)))) * 0.5
+    } else {
+        c_x += ((board.card_dw * f32(len(dealer.play.cards))) + (board.card_padding * (f32(len(dealer.play.cards) - 1)))) * 0.5
+    }
+
+    tmp_str := strings.clone_to_cstring(disp, allocator = graph_alloc)
+    defer delete(tmp_str, allocator = graph_alloc)
+    t_sz := rl.MeasureTextEx(font, tmp_str, font_size, 0)
+    
+    c_x -= t_sz.x * 0.5
+    c_y -= t_sz.y * 0.5
+
+    append(&animations, Animation{
+        type = .Score,
+        status = .Running,
+        start = step + offset,
+        end_step = Animation_Step{
+            pos = rl.Vector2{ -1, -1 },
+            scale = rl.Vector2{ 0, 0 },
+            rotation = 0,
+            opacity = 1
+        },
+        params = [10]f32{
+            0,
+            255, 255, 255, 
+            font_size, 
+            0, 0, 0, 0, 0
+        },
+        str_param = strings.clone(disp),
+        steps = make([dynamic]Animation_Step)
+    })
+    a_idx := len(animations) - 1
+
+    for st in 0..<length1 {
+        inject_at(&animations[a_idx].steps, 0, Animation_Step{
+            pos = rl.Vector2{ c_x, c_y },
+            scale = rl.Vector2{ 1, 1 },
+            rotation = 0,
+            opacity = 1
+        })
+    }
+
+    c_op:f32 = 1
+    op_change:f32 = 1 / f32(length2)
+
+    for st in 0..<length2 {
+        inject_at(&animations[a_idx].steps, 0, Animation_Step{
+            pos = rl.Vector2{ c_x, c_y },
+            scale = rl.Vector2{ 1, 1 },
+            rotation = 0,
+            opacity = c_op
+        })
         c_op -= op_change
         if c_op < 0 {
             c_op = 0
