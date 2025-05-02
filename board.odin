@@ -312,6 +312,9 @@ calculate_board :: proc() {
     board.padding = math.floor(active_width * 0.02)
     board.card_padding = math.floor(active_width * 0.01)
 
+    board.card_dw = active_width * 0.07
+    board.card_dh = math.floor((f32(350) / f32(250)) * (active_width * 0.07))
+
     cx:f32 = active_x + board.padding
     cy:f32 = active_y + board.padding
 

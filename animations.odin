@@ -43,19 +43,37 @@ Animation :: struct {
     start:int,
     end_step:Animation_Step,
     params:[10]f32,
+    str_param:string,
     steps:[dynamic]Animation_Step
 }
 
 animations := make([dynamic]Animation)
-animation_cache:[10]string
 ac_index:int = 0
 
 init_animations :: proc() {
   
 }
 
-end_animations :: proc() {
+clear_animations :: proc() {
+    for i in 0..<len(animations) {
+        delete(animations[i].steps)
+        if len(animations[i].str_param) > 0 {
+            delete(animations[i].str_param, allocator = graph_alloc)
+        }
+    }
     delete(animations)
+    animations = make([dynamic]Animation)
+}
+
+end_animations :: proc() {
+    for a in 0..<len(animations) {
+        if len(animations[a].str_param) > 0 {
+            delete (animations[a].str_param)
+        }
+        delete(animations[a].steps)
+    }
+    delete(animations)
+
 }
 
 an_run_animations :: proc() {
@@ -65,6 +83,9 @@ an_run_animations :: proc() {
 
     for a := len(animations) - 1; a >= 0; a -= 1 {
         if animations[a].status == .Ended {
+            if len(animations[a].str_param) > 0 {
+                delete (animations[a].str_param)
+            }
             delete(animations[a].steps)
             ordered_remove(&animations, a)
         }
@@ -76,26 +97,28 @@ an_draw_animation :: proc(a:int) {
         case .Basic:
 
         case .Card:
-            c_idx:int = int(animations[a].params[0])
-            if step >= animations[a].start { 
-                if len(animations[a].steps) == 0 {
-                    n_x:f32 = animations[a].end_step.pos.x
-                    n_y:f32 = animations[a].end_step.pos.y
-                    n_w:f32 = board.card_dw * animations[a].end_step.scale.x
-                    n_h:f32 = board.card_dh * animations[a].end_step.scale.y
-                    animations[a].status = .Ended
-                    deck[c_idx].display = { n_x, n_y, animations[a].end_step.scale.x, animations[a].end_step.scale.y }
-                    deck[c_idx].hit = { n_x - (n_w * 0.5), n_y - (n_h * 0.5), n_w, n_h }
-                    deck[c_idx].rotation = animations[a].end_step.rotation
-                    deck[c_idx].opacity = animations[a].end_step.opacity
-                    deck[c_idx].status -= { .Animating }
-                } else {
-                    curr_step := pop(&animations[a].steps)
-                    deck[c_idx].display = { curr_step.pos.x, curr_step.pos.y, curr_step.scale.x, curr_step.scale.y }
-                    deck[c_idx].rotation = curr_step.rotation
-                    deck[c_idx].opacity = curr_step.opacity
-                    if animations[a].params[1] == 100.100 && len(animations[a].steps) == int(animations[a].params[2]) && .Flipped in deck[c_idx].status {
-                        deck[c_idx].status -= { .Flipped }
+            if game_state == .Running {
+                c_idx:int = int(animations[a].params[0])
+                if step >= animations[a].start { 
+                    if len(animations[a].steps) == 0 {
+                        n_x:f32 = animations[a].end_step.pos.x
+                        n_y:f32 = animations[a].end_step.pos.y
+                        n_w:f32 = board.card_dw * animations[a].end_step.scale.x
+                        n_h:f32 = board.card_dh * animations[a].end_step.scale.y
+                        animations[a].status = .Ended
+                        deck[c_idx].display = { n_x, n_y, animations[a].end_step.scale.x, animations[a].end_step.scale.y }
+                        deck[c_idx].hit = { n_x - (n_w * 0.5), n_y - (n_h * 0.5), n_w, n_h }
+                        deck[c_idx].rotation = animations[a].end_step.rotation
+                        deck[c_idx].opacity = animations[a].end_step.opacity
+                        deck[c_idx].status -= { .Animating }
+                    } else {
+                        curr_step := pop(&animations[a].steps)
+                        deck[c_idx].display = { curr_step.pos.x, curr_step.pos.y, curr_step.scale.x, curr_step.scale.y }
+                        deck[c_idx].rotation = curr_step.rotation
+                        deck[c_idx].opacity = curr_step.opacity
+                        if animations[a].params[1] == 100.100 && len(animations[a].steps) == int(animations[a].params[2]) && .Flipped in deck[c_idx].status {
+                            deck[c_idx].status -= { .Flipped }
+                        }
                     }
                 }
             }
@@ -103,32 +126,32 @@ an_draw_animation :: proc(a:int) {
         case .Icon:
             
         case .Score:
-            if step >= animations[a].start {
-                if len(animations[a].steps) == 0 {
-                    rem_idx:int = int(animations[a].params[0])
-                    animations[a].status = .Ended
-                } else {
-                    ch_idx:int = int(animations[a].params[0])
-                    curr_step := pop(&animations[a].steps)
-                    sc_font_size:f32 = animations[a].params[4]
-                    d_str := strings.clone_to_cstring(animation_cache[ch_idx], allocator = graph_alloc)
-                    defer delete(d_str, allocator = graph_alloc)
-                    r_p:f32 = sc_font_size * 0.2
-                    r_x:f32 = curr_step.pos.x
-                    r_y:f32 = curr_step.pos.y - r_p
-                    r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
-                    r_w:f32 = r_size.x + (2 * r_p)
-                    r_h:f32 = r_size.y + (2 * r_p)
-                    scr_color:rl.Color = { u8(animations[a].params[1]), u8(animations[a].params[2]), u8(animations[a].params[3]), u8(255 * curr_step.opacity) }
-                    r_color:rl.Color = { 10, 10, 10, 255 }
-                    rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
-                    rl.DrawRectangleRec({ r_x, r_y, r_w * 0.25, r_h }, r_color)
-                    rl.DrawTriangle({ r_x, r_y }, { board.player_info.x + board.player_info.width - r_p, r_y + (r_h * 0.5) }, { r_x, r_y + r_h }, r_color)
-                    rl.DrawTextEx(font, d_str, { curr_step.pos.x, curr_step.pos.y }, animations[a].params[4], 0, scr_color)
+            if game_state == .Running {
+                if step >= animations[a].start {
+                    if len(animations[a].steps) == 0 {
+                        rem_idx:int = int(animations[a].params[0])
+                        animations[a].status = .Ended
+                    } else {
+                        ch_idx:int = int(animations[a].params[0])
+                        curr_step := pop(&animations[a].steps)
+                        sc_font_size:f32 = animations[a].params[4]
+                        d_str := strings.clone_to_cstring(animations[a].str_param, allocator = graph_alloc)
+                        defer delete(d_str, allocator = graph_alloc)
+                        r_p:f32 = sc_font_size * 0.2
+                        r_x:f32 = curr_step.pos.x
+                        r_y:f32 = curr_step.pos.y - r_p
+                        r_size := rl.MeasureTextEx(font,d_str, sc_font_size, 0)
+                        r_w:f32 = r_size.x + (2 * r_p)
+                        r_h:f32 = r_size.y + (2 * r_p)
+                        scr_color:rl.Color = { u8(animations[a].params[1]), u8(animations[a].params[2]), u8(animations[a].params[3]), u8(255 * curr_step.opacity) }
+                        r_color:rl.Color = { 10, 10, 10, 255 }
+                        rl.DrawRectangleRounded({ r_x, r_y, r_w, r_h }, 0.1, 3, r_color)
+                        rl.DrawRectangleRec({ r_x, r_y, r_w * 0.25, r_h }, r_color)
+                        rl.DrawTriangle({ r_x, r_y }, { board.player_info.x + board.player_info.width - r_p, r_y + (r_h * 0.5) }, { r_x, r_y + r_h }, r_color)
+                        rl.DrawTextEx(font, d_str, { curr_step.pos.x, curr_step.pos.y }, animations[a].params[4], 0, scr_color)
+                    }
                 }
             }
-
-            
     }
 }
 
@@ -160,6 +183,7 @@ an_move_card :: proc(c_idx:int, start_pos:rl.Vector2, end_pos:rl.Vector2, length
             f32(c_idx),
             0, 0, 0, 0, 0, 0, 0, 0, 0
         },
+        str_param = "",
         steps = make([dynamic]Animation_Step)
     })
     a_idx := len(animations) - 1
@@ -232,6 +256,7 @@ an_flip_card :: proc(c_idx:int, offset:int = 0) {
             f32(key_1), 
             0, 0, 0, 0, 0, 0, 0
         },
+        str_param = "",
         steps = make([dynamic]Animation_Step)
     })
     a_idx := len(animations) - 1
@@ -288,6 +313,7 @@ an_discard_card :: proc(c_idx:int, offset:int) {
             f32(c_idx),
             0, 0, 0, 0, 0, 0, 0, 0, 0
         },
+        str_param = "",
         steps = make([dynamic]Animation_Step)
     })
     a_idx := len(animations) - 1
@@ -322,9 +348,6 @@ an_discard_card :: proc(c_idx:int, offset:int) {
 }
 
 an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, font_size:f32, color:[3]u8 = [3]u8{ 255, 255, 255 }) {
-    ch_idx:int = ac_index
-    ac_index = ac_index + 1 >= len(animation_cache) ? 0 : ac_index + 1
-    animation_cache[ch_idx] = strings.clone(disp)
 
     length1:int = int(f32(length) * 0.55)
     length2:int = int(f32(length) * 0.45)
@@ -340,11 +363,12 @@ an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, fo
             opacity = 1
         },
         params = [10]f32{
-            f32(ch_idx),
+            0,
             f32(color[0]), f32(color[1]), f32(color[2]), 
             font_size, 
             0, 0, 0, 0, 0
         },
+        str_param = strings.clone(disp),
         steps = make([dynamic]Animation_Step)
     })
     a_idx := len(animations) - 1

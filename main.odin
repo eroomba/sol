@@ -120,7 +120,7 @@ log_arena : vmem.Arena
 log_alloc := vmem.arena_allocator(&log_arena)
 
 main :: proc() {
-	if 1 == 0 {
+	//if 1 == 0 {
 		default_allocator := context.allocator
 		tracking_allocator: mem.Tracking_Allocator
 		mem.tracking_allocator_init(&tracking_allocator, default_allocator)
@@ -141,7 +141,7 @@ main :: proc() {
 			}
 			mem.tracking_allocator_destroy(&tracking_allocator)
 		}
-	}
+	//}
 
 
     rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
@@ -149,12 +149,13 @@ main :: proc() {
 
 	start_w:i32 = i32(screen_width)
 	start_h:i32 = i32(screen_height)
-	go_full:bool = false
-	rl.InitWindow(start_w, start_h, "cards")
+	go_full:bool = true
 	if go_full {
+		rl.InitWindow(start_w, start_h, "cards")
 		rl.ToggleFullscreen()
-		curr_width:f32 = f32(rl.GetScreenWidth())
-		curr_height:f32 = f32(rl.GetScreenHeight())
+		curr_scale := rl.GetWindowScaleDPI()
+		curr_width:f32 = f32(rl.GetScreenWidth()) / curr_scale.x
+		curr_height:f32 = f32(rl.GetScreenHeight()) / curr_scale.y
 		if curr_width != target_width || curr_height != target_height {
 			active_width = curr_width
 			active_height = curr_width * target_ratio
@@ -164,11 +165,13 @@ main :: proc() {
 			screen_height = curr_height
 		}
 	} else {
-		curr_width:f32 = f32(start_w)
-		curr_height:f32 = f32(start_h)
+		curr_scale := rl.GetWindowScaleDPI()
+		curr_width:f32 = f32(rl.GetScreenWidth()) / curr_scale.x // f32(start_w)
+		curr_height:f32 = f32(rl.GetScreenHeight()) / curr_scale.y //f32(start_h)
+		rl.InitWindow(i32(curr_width), i32(curr_height), "cards")
 		if curr_width != target_width || curr_height != target_height {
 			active_width = curr_width
-			active_height = curr_width * target_ratio
+			active_height = active_width * target_ratio
 			active_y = (curr_height - active_height) * 0.5
 			active_x = 0
 			screen_width = curr_width
@@ -678,6 +681,8 @@ run_game_step :: proc() {
 }
 
 end_this_game :: proc() {
+
+	clear_animations()
 
 	switch game_mode {
 		case .People:
