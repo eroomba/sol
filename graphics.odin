@@ -8,6 +8,7 @@ import "core:strings"
 import "core:strconv"
 import "core:math/rand"
 import rl "vendor:raylib"
+import "core:os"
 
 
 BG_COLOR:rl.Color : { 0, 0, 0, 255 }
@@ -23,6 +24,7 @@ textures := make([dynamic]rl.Texture2D)
 images := make([dynamic]rl.Image)
 card_textures := make([dynamic]rl.Texture2D)
 instructions_texture:rl.Texture2D
+log_img:rl.Image = rl.GenImageColor(1, 1, rl.BLACK)
 text_textures := make([dynamic]rl.Texture2D)
 back_idx:int = 0
 
@@ -32,7 +34,6 @@ graph_alloc := vmem.arena_allocator(&g_arena)
 img_dice:int = -1
 img_card_layout:int = -1
 img_spells:int = -1
-img_i_log:int = -1
 img_icons:int = -1
 
 txt_logo:int = -1
@@ -49,8 +50,6 @@ dealer_dice_rot:f32 = 0
 
 src_card_width:f32 = 500
 src_card_height:f32 = 700
-
-load_images:bool = false
 
 board_space_color:rl.Color = { 100, 100, 100, 120 }
 
@@ -79,6 +78,7 @@ init_graphics :: proc() -> int {
     font = rl.LoadFont("./CharcuterieSerif.ttf")
     button_font = rl.LoadFont("./CharcuterieContrast.ttf")
     main_filter = rl.TextureFilter.BILINEAR
+
 
     append(&images, rl.LoadImage("./images/cards_layout.png"))
     img_card_layout = len(images) - 1
@@ -133,7 +133,7 @@ init_graphics :: proc() -> int {
     append(&textures, rl.LoadTextureFromImage(images[img_icons]))
     txt_icons = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_icons])
-	rl.SetTextureFilter(textures[txt_icons], main_filter)
+    rl.SetTextureFilter(textures[txt_icons], main_filter)
 
     rl.ImageClearBackground(&c_img, { 255, 255, 255, 0 })
     rl.ImageDraw(&c_img, images[img_card_layout], { src_card_width, 0, src_card_width, src_card_height}, { 0, 0, board.card_dw, board.card_dh }, rl.WHITE)
@@ -172,9 +172,6 @@ init_graphics :: proc() -> int {
     txt_dl_board = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_dl_board])
 	rl.SetTextureFilter(textures[txt_dl_board], main_filter)
-
-    append(&images, rl.ImageCopy(tmp_i))
-    img_i_log = len(images) - 1
 
     append(&textures, rl.LoadTextureFromImage(tmp_i))
     txt_i_log = len(textures) - 1
@@ -229,6 +226,8 @@ end_graphics :: proc() {
     }
     delete(text_textures)
 
+    rl.UnloadImage(log_img)
+
     rl.UnloadFont(font)
     rl.UnloadFont(button_font)
 	free_all(graph_alloc)
@@ -254,7 +253,7 @@ g_draw_text :: proc(font:rl.Font, text:string, pos:rl.Vector2, font_size:f32, fo
 }
 
 g_draw_game :: proc() {
-
+    
     for len(text_textures) > 0 {
         rm_txt := pop(&text_textures)
         rl.UnloadTexture(rm_txt)
@@ -652,58 +651,66 @@ g_draw_board :: proc() {
 }
 
 g_update_log :: proc() {
-    lg_f_size:f32 = board.island_log_font_size
-    lg_ln_pad:f32 = board.island_log_line_padding
-    lg_pad:f32 = board.island_log_font_size * 0.5
-    lg_ln_h:f32 = lg_f_size + lg_ln_pad
-
-    lg_disp_w:f32 = board.island_log.width - (2.5 * lg_pad)
-    lg_disp_h:f32 = board.island_log.height - (2 * lg_pad)
-
-    lg_img_w:f32 = lg_disp_w
-    lg_img_h:f32 = lg_ln_h
-    lg_lines := make([dynamic]string)
-    defer delete(lg_lines)
-    for lg3 in 0..<len(game_log_data) {
-        wr_lines := wrap_lines(game_log_data[lg3], lg_img_w, lg_f_size)
-        for lg4 in 0..<len(wr_lines) {
-            append(&lg_lines, wr_lines[lg4])
-        }
+    if !game_log_init {
+        rl.UnloadImage(log_img)
+        log_img = rl.GenImageColor(1, 1, { 0, 0, 0, 0 })
+        textures[txt_i_log] = rl.LoadTextureFromImage(log_img)
+        game_log_init = true
     }
+    if len(game_log_data) > 0 {
+        lg_f_size:f32 = board.island_log_font_size
+        lg_ln_pad:f32 = board.island_log_line_padding
+        lg_pad:f32 = board.island_log_font_size * 0.5
+        lg_ln_h:f32 = lg_f_size + lg_ln_pad
 
-    lg_img_h = lg_ln_h * f32(len(lg_lines))
+        lg_disp_w:f32 = board.island_log.width - (2.5 * lg_pad)
+        lg_disp_h:f32 = board.island_log.height - (2 * lg_pad)
 
-    rl.UnloadImage(images[img_i_log])
-    images[img_i_log] = rl.GenImageColor(i32(lg_img_w), i32(lg_img_h), { 0, 0, 0, 0 })
-    lg_txt_y:f32 = 0
-
-    for lg in 0..<len(lg_lines) {
-        if lg_lines[lg] == "---" {
-            ln_h:f32 = lg_ln_h * 0.1
-            ln_w:f32 = lg_disp_w - (lg_ln_pad * 4)
-            ln_y:f32 = lg_ln_h * 0.45
-
-            rl.ImageDrawRectangleRec(&images[img_i_log], { 0, lg_txt_y + ln_y, ln_w, ln_h}, { 80, 80, 80, 100 })
-
-            lg_txt_y += lg_ln_h
-
-        } else {
-
-            lg_cstr := strings.clone_to_cstring(lg_lines[lg], allocator = graph_alloc)
-            defer delete(lg_cstr, allocator = graph_alloc)
-            lg_ln_size := rl.MeasureTextEx(font, lg_cstr, lg_f_size, 0)
-            
-            //rl.DrawTextEx(font, lg_cstr, { lg_x, lg_y }, lg_f_size, 0, rl.WHITE)
-            rl.ImageDrawTextEx(&images[img_i_log], font, lg_cstr, { 0, lg_txt_y }, lg_f_size, 0, rl.WHITE)
-
-            lg_txt_y += lg_ln_size.y + lg_ln_pad
+        lg_img_w:f32 = lg_disp_w
+        lg_img_h:f32 = lg_ln_h
+        lg_lines := make([dynamic]string)
+        defer delete(lg_lines)
+        for lg3 in 0..<len(game_log_data) {
+            wr_lines := wrap_lines(game_log_data[lg3], lg_img_w, lg_f_size)
+            for lg4 in 0..<len(wr_lines) {
+                append(&lg_lines, wr_lines[lg4])
+            }
         }
-    } 
 
-    rl.UnloadTexture(textures[txt_i_log])
-    textures[txt_i_log] = rl.LoadTextureFromImage(images[img_i_log])
-    rl.GenTextureMipmaps(&textures[txt_i_log])
-	rl.SetTextureFilter(textures[txt_i_log], main_filter)
+        lg_img_h = lg_ln_h * f32(len(lg_lines))
+
+        rl.UnloadImage(log_img)
+        log_img = rl.GenImageColor(i32(lg_img_w), i32(lg_img_h), { 0, 0, 0, 0 })
+        lg_txt_y:f32 = 0
+
+        for lg in 0..<len(lg_lines) {
+            if lg_lines[lg] == "---" {
+                ln_h:f32 = lg_ln_h * 0.1
+                ln_w:f32 = lg_disp_w - (lg_ln_pad * 4)
+                ln_y:f32 = lg_ln_h * 0.45
+
+                rl.ImageDrawRectangleRec(&log_img, { 0, lg_txt_y + ln_y, ln_w, ln_h}, { 80, 80, 80, 100 })
+
+                lg_txt_y += lg_ln_h
+
+            } else {
+
+                lg_cstr := strings.clone_to_cstring(lg_lines[lg], allocator = graph_alloc)
+                defer delete(lg_cstr, allocator = graph_alloc)
+                lg_ln_size := rl.MeasureTextEx(font, lg_cstr, lg_f_size, 0)
+                
+                //rl.DrawTextEx(font, lg_cstr, { lg_x, lg_y }, lg_f_size, 0, rl.WHITE)
+                rl.ImageDrawTextEx(&log_img, font, lg_cstr, { 0, lg_txt_y }, lg_f_size, 0, rl.WHITE)
+
+                lg_txt_y += lg_ln_size.y + lg_ln_pad
+            }
+        } 
+
+        rl.UnloadTexture(textures[txt_i_log])
+        textures[txt_i_log] = rl.LoadTextureFromImage(log_img)
+        rl.GenTextureMipmaps(&textures[txt_i_log])
+        rl.SetTextureFilter(textures[txt_i_log], main_filter)
+    }
 }
 
 g_draw_modal :: proc() {

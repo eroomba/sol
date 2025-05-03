@@ -28,7 +28,7 @@ Animation_Step :: struct {
     pos:rl.Vector2,
     scale:rl.Vector2,
     rotation:f32,
-    opacity:f32,
+    opacity:f32
 }
 
 Animation_Status :: enum {
@@ -47,7 +47,10 @@ Animation :: struct {
     steps:[dynamic]Animation_Step
 }
 
-animations := make([dynamic]Animation)
+an_arena : vmem.Arena
+anim_alloc := vmem.arena_allocator(&an_arena)
+
+animations := make([dynamic]Animation, allocator = anim_alloc)
 ac_index:int = 0
 
 init_animations :: proc() {
@@ -55,25 +58,18 @@ init_animations :: proc() {
 }
 
 clear_animations :: proc() {
-    for i in 0..<len(animations) {
-        delete(animations[i].steps)
-        if len(animations[i].str_param) > 0 {
-            delete(animations[i].str_param, allocator = graph_alloc)
-        }
-    }
-    delete(animations)
-    animations = make([dynamic]Animation)
-}
-
-end_animations :: proc() {
     for a in 0..<len(animations) {
-        if len(animations[a].str_param) > 0 {
-            delete (animations[a].str_param)
-        }
+        delete(animations[a].str_param, allocator = anim_alloc)
         delete(animations[a].steps)
     }
     delete(animations)
 
+    animations = make([dynamic]Animation)
+}
+
+end_animations :: proc() {
+    free_all(anim_alloc)
+    vmem.arena_destroy(&an_arena)
 }
 
 an_run_animations :: proc() {
@@ -83,9 +79,7 @@ an_run_animations :: proc() {
 
     for a := len(animations) - 1; a >= 0; a -= 1 {
         if animations[a].status == .Ended {
-            if len(animations[a].str_param) > 0 {
-                delete (animations[a].str_param)
-            }
+            delete (animations[a].str_param, allocator = anim_alloc)
             delete(animations[a].steps)
             ordered_remove(&animations, a)
         }
@@ -136,8 +130,8 @@ an_draw_animation :: proc(a:int) {
                         center:bool = animations[a].params[5] == 1 ? true : false
                         curr_step := pop(&animations[a].steps)
                         sc_font_size:f32 = animations[a].params[4]
-                        d_str := strings.clone_to_cstring(animations[a].str_param, allocator = graph_alloc)
-                        defer delete(d_str, allocator = graph_alloc)
+                        d_str := strings.clone_to_cstring(animations[a].str_param, allocator = anim_alloc)
+                        defer delete(d_str, allocator = anim_alloc)
                         scr_color:rl.Color = { u8(animations[a].params[1]), u8(animations[a].params[2]), u8(animations[a].params[3]), u8(255 * curr_step.opacity) }
                         r_color:rl.Color = { 10, 10, 10, u8(255 * curr_step.opacity) }
 
@@ -214,8 +208,8 @@ an_move_card :: proc(c_idx:int, start_pos:rl.Vector2, end_pos:rl.Vector2, length
             f32(c_idx),
             0, 0, 0, 0, 0, 0, 0, 0, 0
         },
-        str_param = "",
-        steps = make([dynamic]Animation_Step)
+        str_param = strings.clone("", allocator = anim_alloc),
+        steps = make([dynamic]Animation_Step, allocator = anim_alloc)
     })
     a_idx := len(animations) - 1
 
@@ -287,8 +281,8 @@ an_flip_card :: proc(c_idx:int, offset:int = 0) {
             f32(key_1), 
             0, 0, 0, 0, 0, 0, 0
         },
-        str_param = "",
-        steps = make([dynamic]Animation_Step)
+        str_param = strings.clone("", allocator = anim_alloc),
+        steps = make([dynamic]Animation_Step, allocator = anim_alloc)
     })
     a_idx := len(animations) - 1
 
@@ -344,8 +338,8 @@ an_discard_card :: proc(c_idx:int, offset:int) {
             f32(c_idx),
             0, 0, 0, 0, 0, 0, 0, 0, 0
         },
-        str_param = "",
-        steps = make([dynamic]Animation_Step)
+        str_param = strings.clone("", allocator = anim_alloc),
+        steps = make([dynamic]Animation_Step, allocator = anim_alloc)
     })
     a_idx := len(animations) - 1
 
@@ -402,8 +396,8 @@ an_score_display :: proc(disp:string, pos:rl.Vector2, length:int, offset:int, fo
             center_prams, 
             0, 0, 0, 0
         },
-        str_param = strings.clone(disp),
-        steps = make([dynamic]Animation_Step)
+        str_param = strings.clone(disp, allocator = anim_alloc),
+        steps = make([dynamic]Animation_Step, allocator = anim_alloc)
     })
     a_idx := len(animations) - 1
 
@@ -473,8 +467,8 @@ an_play_display :: proc(disp:string, mode:Card_Mode, top_bottom:int, length:int,
         c_x += ((board.card_dw * f32(len(dealer.play.cards))) + (board.card_padding * (f32(len(dealer.play.cards) - 1)))) * 0.5
     }
 
-    tmp_str := strings.clone_to_cstring(disp, allocator = graph_alloc)
-    defer delete(tmp_str, allocator = graph_alloc)
+    tmp_str := strings.clone_to_cstring(disp, allocator = anim_alloc)
+    defer delete(tmp_str, allocator = anim_alloc)
     t_sz := rl.MeasureTextEx(font, tmp_str, font_size, 0)
     
     c_x -= t_sz.x * 0.5
@@ -496,8 +490,8 @@ an_play_display :: proc(disp:string, mode:Card_Mode, top_bottom:int, length:int,
             font_size, 
             0, 0, 0, 0, 0
         },
-        str_param = strings.clone(disp),
-        steps = make([dynamic]Animation_Step)
+        str_param = strings.clone(disp, allocator = anim_alloc),
+        steps = make([dynamic]Animation_Step, allocator = anim_alloc)
     })
     a_idx := len(animations) - 1
 

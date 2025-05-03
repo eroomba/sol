@@ -112,6 +112,7 @@ set_flags:bit_set[Event_Flags]
 set_flags_prev := bit_set[Event_Flags]{}
 
 game_log_data := make([dynamic]string)
+game_log_init:bool = false
 prev_log_len:int = 0
 
 mouse_pos:rl.Vector2 = { -1, -1 }
@@ -143,10 +144,11 @@ main :: proc() {
 		}
 	//}
 
-
-    rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
+    //rl.SetTraceLogLevel(rl.TraceLogLevel.NONE)
+	rl.SetTraceLogLevel(rl.TraceLogLevel.WARNING)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
 
+	
 	start_w:i32 = i32(screen_width)
 	start_h:i32 = i32(screen_height)
 	go_full:bool = true
@@ -441,6 +443,9 @@ start_game :: proc() {
 }
 
 end_game :: proc() {
+	end_animations()
+
+	delete(animations)
 	delete(player.play.cards)
 	delete(player.hand)
 	delete(dealer.play.cards)
@@ -660,10 +665,12 @@ set_game_step :: proc(new_step:Game_Step) {
 }
 
 run_game_step :: proc() {
+	clear_animations()
+
 	if game_state == .Running {
 		switch game_step {
 			case .Select:
-
+				
 				if len(player.play.cards) <= 0 {
 					game_log("You must play at least one card.")
 				} else {
