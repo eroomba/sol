@@ -142,7 +142,7 @@ init_graphics :: proc() -> int {
     rl.GenTextureMipmaps(&card_textures[back_idx])
 	rl.SetTextureFilter(card_textures[back_idx], main_filter)
 
-    append(&textures, rl.LoadTexture("./images/parchment.jpg"))
+    append(&textures, rl.LoadTexture("./images/parchment.png"))
     txt_bg = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_bg])
 	rl.SetTextureFilter(textures[txt_bg], main_filter)
