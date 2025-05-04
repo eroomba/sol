@@ -7,6 +7,8 @@ import "core:math/rand"
 import rl "vendor:raylib"
 import "core:mem"
 import vmem "core:mem/virtual"
+import "core:encoding/json"
+import "core:os"
 
 FRAME_RATE:i32 : 500
 STEP_RATE:i32 : 96
@@ -18,6 +20,10 @@ WEALTH_TARGET:int : 150
 SCORE_TARGET:int : 300
 
 Game_Settings :: struct {
+	window_width:int,
+	window_height:int,
+	full_screen:bool,
+	high_score:[3][3]int,
 	births:bool
 }
 
@@ -68,15 +74,19 @@ Event :: struct {
 }
 
 game_settings := Game_Settings{
+	window_width = 1920,
+    window_height = 1080,
+    full_screen = true,
+    high_score = [3][3]int{ [3]int{ 0, 0, 0 }, [3]int{ 0, 0, 0 }, [3]int{ 0, 0, 0 } },
 	births = false
 }
 
-target_width:f32= 1920
-target_height:f32 = 1080
+target_width:f32= f32(game_settings.window_width)
+target_height:f32 = f32(game_settings.window_height)
 target_ratio:f32 = target_height / target_width
 
-screen_width:f32 = 1920
-screen_height:f32 = 1080
+screen_width:f32 = f32(game_settings.window_width)
+screen_height:f32 = f32(game_settings.window_height)
 
 active_width:f32 = f32(screen_width)
 active_height:f32 = f32(screen_height)
@@ -121,6 +131,19 @@ log_arena : vmem.Arena
 log_alloc := vmem.arena_allocator(&log_arena)
 
 main :: proc() {
+	data, ok := os.read_entire_file_from_filename("sol_set.json")
+	if ok {
+		json_data, err := json.parse(data)
+		if err == .None {
+			root := json_data.(json.Object)
+			screen_width = f32(root["window_width"].(json.Float))
+			screen_height = f32(root["window_height"].(json.Float))
+			game_settings.full_screen = bool(root["full_screen"].(json.Boolean))
+		}
+		json.destroy_value(json_data)
+	}
+	delete(data)
+
 	//if 1 == 0 {
 		default_allocator := context.allocator
 		tracking_allocator: mem.Tracking_Allocator
@@ -148,16 +171,12 @@ main :: proc() {
 	rl.SetTraceLogLevel(rl.TraceLogLevel.WARNING)
 	rl.SetConfigFlags({ .VSYNC_HINT, .MSAA_4X_HINT, .WINDOW_UNDECORATED, .WINDOW_HIGHDPI })
 
-	
-	start_w:i32 = i32(screen_width)
-	start_h:i32 = i32(screen_height)
-	go_full:bool = true
-	if go_full {
-		rl.InitWindow(start_w, start_h, "cards")
+	if game_settings.full_screen {
+		rl.InitWindow(i32(game_settings.window_width), i32(game_settings.window_height), "cards")
 		rl.ToggleFullscreen()
 		curr_scale := rl.GetWindowScaleDPI()
-		curr_width:f32 = f32(rl.GetScreenWidth()) / curr_scale.x
-		curr_height:f32 = f32(rl.GetScreenHeight()) / curr_scale.y
+		curr_width:f32 = f32(rl.GetScreenWidth()) / curr_scale.x // f32(start_w)
+		curr_height:f32 = f32(rl.GetScreenHeight()) / curr_scale.y //f32(start_h)
 		if curr_width != target_width || curr_height != target_height {
 			active_width = curr_width
 			active_height = curr_width * target_ratio
