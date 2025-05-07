@@ -35,7 +35,8 @@ build_instructions :: proc(width:f32) {
     all_lines := make([dynamic]cstring, allocator = graph_alloc)
 
     for i in 0..<len(instructions) {
-        n_lines := wrap_lines(instructions[i], i_img_w, board.font_size)
+        n_lines := make([dynamic]string)
+        wrap_lines(&n_lines, instructions[i], i_img_w, board.font_size)
         for j in 0..<len(n_lines) {
             append(&all_lines, strings.clone_to_cstring(n_lines[j], allocator = graph_alloc))
             cs_i:int = len(all_lines) - 1

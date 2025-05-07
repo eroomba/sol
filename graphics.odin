@@ -311,7 +311,9 @@ g_draw_tooltips :: proc() {
                     fill_str = fmt.aprintf(tool_tips[i].text, deck[board.hover_card_idx].power, suit_name(board.hover_card_idx), spell_name(board.hover_card_idx), allocator = graph_alloc)
 
             }
-            tt_lines := wrap_lines(fill_str, -1, tt_f_size)
+            tt_lines := make([dynamic]string)
+            defer delete(tt_lines)
+            wrap_lines(&tt_lines, fill_str, -1, tt_f_size)
             tt_w:f32 = 0
             tt_h:f32 = tt_f_size
             tt_lh:f32 = tt_f_size 
@@ -625,7 +627,7 @@ g_draw_board :: proc() {
         }
     }
 
-    rl.DrawTexturePro(textures[txt_i_log], { 0, lg_disp_crop_y, lg_disp_w, lg_disp_crop_h }, { lg_disp_x, lg_disp_y, lg_disp_w, lg_disp_crop_h }, { 0, 0 }, 0, rl.WHITE)
+    rl.DrawTexturePro(textures[txt_i_log], { 0, lg_disp_crop_y, f32(textures[txt_i_log].width), lg_disp_crop_h }, { lg_disp_x, lg_disp_y, f32(textures[txt_i_log].width), lg_disp_crop_h }, { 0, 0 }, 0, rl.WHITE)
     //rl.DrawTexturePro(textures[txt_i_log], { 0, 0, lg_disp_w, lg_disp_h }, { active_x, active_y, lg_disp_w, lg_disp_h }, { 0, 0 }, 0, rl.WHITE)
 
     if draw_sb {
@@ -677,9 +679,11 @@ g_update_log :: proc() {
         lg_lines := make([dynamic]string)
         defer delete(lg_lines)
         for lg3 in 0..<len(game_log_data) {
-            wr_lines := wrap_lines(game_log_data[lg3], lg_img_w, lg_f_size)
+            wr_lines := make([dynamic]string)
+            defer delete(wr_lines)
+            wrap_lines(&wr_lines, game_log_data[lg3], lg_img_w, lg_f_size)
             for lg4 in 0..<len(wr_lines) {
-                append(&lg_lines, wr_lines[lg4])
+                append(&lg_lines, strings.clone(wr_lines[lg4]))
             }
         }
 
@@ -757,7 +761,9 @@ g_draw_card_info :: proc() {
 
         ci_txt_w:f32 = card_info.width - (2 * ci_pad)
 
-        i_lines := wrap_lines(spell_info[deck[c_idx].spell], ci_txt_w, board.font_size)
+        i_lines := make([dynamic]string)
+        defer delete(i_lines)
+        wrap_lines(&i_lines, spell_info[deck[c_idx].spell], ci_txt_w, board.font_size)
         card_info.height += f32(len(i_lines)) * ci_lh
 
         card_info.x = active_x + (active_width * 0.5) - (card_info.width * 0.5)
@@ -1216,10 +1222,7 @@ g_draw_card :: proc(idx:int) {
     }
 }
 
-wrap_lines :: proc(str:string, width:f32, font_size:f32) -> [dynamic]string {
-    ret_val := make([dynamic]string)
-    defer delete(ret_val)
-
+wrap_lines :: proc(lines:^[dynamic]string, str:string, width:f32, font_size:f32) {
     words := strings.split(str," ", allocator = graph_alloc)
     defer delete(words, allocator = graph_alloc)
     c_width:f32 = 0
@@ -1228,7 +1231,7 @@ wrap_lines :: proc(str:string, width:f32, font_size:f32) -> [dynamic]string {
 
     for i in 0..<len(words) {
         if words[i] == "<br>" {
-            append(&ret_val, c_str)
+            append(lines, c_str)
             c_str = ""
         } else {
             n_str := strings.concatenate({c_str, words[i]}, allocator = graph_alloc)
@@ -1239,7 +1242,7 @@ wrap_lines :: proc(str:string, width:f32, font_size:f32) -> [dynamic]string {
                 c_str = strings.concatenate({c_str, spc, words[i]}, allocator = graph_alloc)
             } else {
                 if m_w > width {
-                    append(&ret_val, c_str)
+                    append(lines, c_str)
                     c_str = strings.concatenate({"", words[i]}, allocator = graph_alloc)
                 } else {
                     spc:string = len(c_str) > 0 ? " " : ""
@@ -1250,9 +1253,7 @@ wrap_lines :: proc(str:string, width:f32, font_size:f32) -> [dynamic]string {
     }
 
     if len(c_str) > 0 {
-        append(&ret_val, c_str)
+        append(lines, c_str)
     }
-
-    return ret_val
 }
 
