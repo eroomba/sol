@@ -33,6 +33,7 @@ Game_State :: enum {
 	Rules,
 	Running,
 	Modal,
+	Options,
 	Ended,
 	Exited
 }
@@ -102,6 +103,7 @@ step:int = 0
 step_delta:int = 0
 
 game_state:Game_State = Game_State.Title
+prev_game_state:Game_State = Game_State.None
 game_step:Game_Step = Game_Step.Init
 prev_game_step:Game_Step = Game_Step.Init
 game_mode:Game_Mode = Game_Mode.People
@@ -299,6 +301,30 @@ main :: proc() {
 			 } else if .Highlighted in board.continue_button_status {
 				board.continue_button_status -= { .Highlighted }
 			 }
+		} else if game_state == .Options {
+			if hit(mouse_pos, board.options_exit_button) {
+				if !(.Highlighted in board.options_exit_button_status) {
+					board.options_exit_button_status += { .Highlighted }
+				}
+			 } else if .Highlighted in board.options_exit_button_status {
+				board.options_exit_button_status -= { .Highlighted }
+			 }
+
+			 if hit(mouse_pos, board.options_rules_button) {
+				if !(.Highlighted in board.options_rules_button_status) {
+					board.options_rules_button_status += { .Highlighted }
+				}
+			 } else if .Highlighted in board.options_rules_button_status {
+				board.options_rules_button_status -= { .Highlighted }
+			 }
+
+			 if hit(mouse_pos, board.options_main_menu_button) {
+				if !(.Highlighted in board.options_main_menu_button_status) {
+					board.options_main_menu_button_status += { .Highlighted }
+				}
+			 } else if .Highlighted in board.options_main_menu_button_status {
+				board.options_main_menu_button_status -= { .Highlighted }
+			 }
 		} else if game_state == .Running {
 
 			if hit(mouse_pos, board.play_button) {
@@ -427,6 +453,7 @@ init_game :: proc() {
 }
 
 start_game :: proc() {
+	prev_game_state = game_state
 	game_state = .Running
 	set_game_step(.Init)
 
@@ -536,11 +563,14 @@ process_events :: proc() {
 			case .Click:
 				if game_state == .Title {
 					if hit(event.pos, board.exit_button) {
+						prev_game_state = game_state
 						game_state = .Exited
 					} else if hit(event.pos, board.start_button) {
+						prev_game_state = game_state
 						game_state = .Running
 						start_game()
 					} else if hit(event.pos, board.rules_button) {
+						prev_game_state = game_state
 						game_state = .Rules
 					}
 
@@ -561,24 +591,43 @@ process_events :: proc() {
 					}
 				} else if game_state == .Rules {
 					if hit(event.pos, board.continue_button) {
+						game_state = prev_game_state
+						prev_game_state = .Rules
+					}
+				} else if game_state == .Options {
+					if hit(event.pos, board.options_exit_button) {
+						prev_game_state = game_state
+						game_state = .Exited
+					} else if hit(event.pos, board.options_rules_button) {
+						prev_game_state = game_state
+						game_state = .Rules
+					} else if hit(event.pos, board.options_main_menu_button) {
+						prev_game_state = game_state
 						game_state = .Title
+					} else if hit(event.pos, board.options_back_button) {
+						game_state = .Running
+						prev_game_state = .Options
 					}
 				} else if game_state == .Modal {
 					if !hit(event.pos, board.modal) {
+						prev_game_state = game_state
 						game_state = .Running
 						board.help_card_display = -1
 						board.help_map_display = false
 					}	
 				} else if game_state == .Ended {
 					if hit(event.pos, board.ending_exit_button) {
+						prev_game_state = game_state
 						game_state = .Exited
 					} else if hit(event.pos, board.ending_restart_button) {
+						prev_game_state = game_state
 						game_state = .Title
 					}
 				} else {
 
 					if hit(event.pos, board.settings_button) {
-						game_state = .Exited
+						prev_game_state = game_state
+						game_state = .Options
 					} else {
 						
 						if game_step == .Select {
@@ -633,6 +682,7 @@ process_events :: proc() {
 					}
 
 					if has_action {
+						prev_game_state = game_state
 						game_state = .Modal
 						for tt in 0..<len(tool_tips) {
 							if .Opened in tool_tips[tt].status {
@@ -756,6 +806,7 @@ end_this_game :: proc() {
 			}
 	}
 
+	prev_game_state = game_state
 	game_state = .Ended
 }
 

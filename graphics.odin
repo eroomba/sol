@@ -272,11 +272,14 @@ g_draw_game :: proc() {
     } else if game_state == .Ended {
         g_draw_background()
         g_draw_ending()
-    } else if game_state == .Running || game_state == .Modal {
+    } else if game_state == .Running || game_state == .Modal || game_state == .Options {
         g_draw_background()
         g_draw_board()
         if game_state == .Modal {
             g_draw_modal()
+        }
+        if game_state == .Options {
+            g_draw_options()
         }
     }
 
@@ -729,6 +732,29 @@ g_draw_modal :: proc() {
     } else if board.help_map_display {
         g_draw_map_help()
     }
+}
+
+g_draw_options :: proc() {
+    rl.DrawRectangleRec({ 0, 0, screen_width, screen_height}, { 20, 20, 20, 100 })
+
+    rl.DrawRectangleRounded(board.options, 0.2, 3, { 0, 0, 0, 255 })
+
+    bc_idx:int = .Highlighted in board.options_rules_button_status ? 1 : 0
+    rl.DrawRectangleRounded(board.options_rules_button, 0.3, 6, button_colors[bc_idx])
+    g_draw_text(button_font, string(board.options_rules_button_text), { board.options_rules_button.x + (2 * board.button_padding), board.options_rules_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+
+    bc_idx = .Highlighted in board.options_main_menu_button_status ? 1 : 0
+    rl.DrawRectangleRounded(board.options_main_menu_button, 0.3, 6, button_colors[bc_idx])
+    g_draw_text(button_font, string(board.options_main_menu_button_text), { board.options_main_menu_button.x + (2 * board.button_padding), board.options_main_menu_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+
+    bc_idx = .Highlighted in board.options_exit_button_status ? 1 : 0
+    rl.DrawRectangleRounded(board.options_exit_button, 0.3, 6, button_colors[bc_idx])
+    g_draw_text(button_font, string(board.options_exit_button_text), { board.options_exit_button.x + (2 * board.button_padding), board.options_exit_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+
+    bc_idx = .Highlighted in board.options_back_button_status ? 1 : 0
+    rl.DrawRectangleRounded(board.options_back_button, 0.3, 6, button_colors[bc_idx])
+    g_draw_text(button_font, string(board.options_back_button_text), { board.options_back_button.x + (2 * board.button_padding), board.options_back_button.y + board.button_padding }, board.button_font_size, board.button_font_spacing, rl.WHITE)
+
 }
 
 g_draw_card_info :: proc() {
