@@ -39,6 +39,10 @@ build_instructions :: proc(width:f32) {
         n_lines := wrap_lines(instructions[i], i_img_w, board.font_size)
         for j in 0..<len(n_lines) {
             cs:cstring = strings.clone_to_cstring(n_lines[j], allocator = graph_alloc)
+            if i_ln_h == 0 {
+                ln_sz := rl.MeasureTextEx(font, cs, board.font_size, 0)
+                i_ln_h = ln_sz.y
+            }
             defer delete(cs, allocator = graph_alloc)
             if cs == "<TITLE>" {
                 i_img_h += board.font_size * 2
@@ -51,11 +55,7 @@ build_instructions :: proc(width:f32) {
             } else if cs == "<SPELLS>" {
                 i_img_h += (i_ln_h * 1.5 * 10) + i_ln_h
             } else {
-                ln_sz := rl.MeasureTextEx(font, cs, board.font_size, 0)
-                i_img_h += ln_sz.y
-                if i_ln_h == 0 {
-                    i_ln_h = ln_sz.y
-                }
+                i_img_h += i_ln_h
             }
             append(&all_lines, cs)
         }
