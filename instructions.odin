@@ -32,32 +32,30 @@ build_instructions :: proc(width:f32) {
     i_img_w:f32 = width
     i_ln_h:f32 = 0
 
-    all_lines := make([dynamic]cstring)
-    defer delete(all_lines)
+    all_lines := make([dynamic]cstring, allocator = graph_alloc)
 
     for i in 0..<len(instructions) {
         n_lines := wrap_lines(instructions[i], i_img_w, board.font_size)
         for j in 0..<len(n_lines) {
-            cs:cstring = strings.clone_to_cstring(n_lines[j], allocator = graph_alloc)
+            append(&all_lines, strings.clone_to_cstring(n_lines[j], allocator = graph_alloc))
+            cs_i:int = len(all_lines) - 1
             if i_ln_h == 0 {
-                ln_sz := rl.MeasureTextEx(font, cs, board.font_size, 0)
+                ln_sz := rl.MeasureTextEx(font, all_lines[cs_i], board.font_size, 0)
                 i_ln_h = ln_sz.y
             }
-            defer delete(cs, allocator = graph_alloc)
-            if cs == "<TITLE>" {
+            if all_lines[cs_i] == "<TITLE>" {
                 i_img_h += board.font_size * 2
-            } else if cs == "<GOODLUCK>" {
+            } else if all_lines[cs_i] == "<GOODLUCK>" {
                 i_img_h += i_ln_h + (board.font_size * 3)
-            } else if cs == "<SUITS>" {
+            } else if all_lines[cs_i] == "<SUITS>" {
                 i_img_h += i_ln_h * 2
-            } else if cs == "<EFFECTS>" {
+            } else if all_lines[cs_i] == "<EFFECTS>" {
                 i_img_h += (i_ln_h * 1.5 * 10) + i_ln_h
-            } else if cs == "<SPELLS>" {
+            } else if all_lines[cs_i] == "<SPELLS>" {
                 i_img_h += (i_ln_h * 1.5 * 10) + i_ln_h
             } else {
                 i_img_h += i_ln_h
             }
-            append(&all_lines, cs)
         }
         append(&all_lines, "")
         i_img_h += i_ln_h
@@ -117,6 +115,11 @@ build_instructions :: proc(width:f32) {
 
     instructions_texture = rl.LoadTextureFromImage(i_img)
     rl.UnloadImage(i_img)
+
+    for i in 0..<len(all_lines) {
+        delete(all_lines[i], allocator = graph_alloc)
+    }
+    delete(all_lines)
 
     instructions_built = true
 }
