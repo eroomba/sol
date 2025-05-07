@@ -120,6 +120,10 @@ init_graphics :: proc() -> int {
 
     ld_img:rl.Image
 
+    instructions_texture = rl.LoadTexture("./images/instructions.png")
+    instructions_lh = f32(instructions_texture.height) * 0.05
+    instructions_built = true
+
     append(&textures, rl.LoadTexture("./images/logo.png"))
     txt_logo = len(textures) - 1
     rl.GenTextureMipmaps(&textures[txt_logo])
@@ -1034,7 +1038,7 @@ g_draw_rules :: proc() {
         build_instructions(board.instructions_disp.width)
     }
 
-    rl.DrawTexturePro(instructions_texture, { 0, instructions_scroll, board.instructions_disp.width, board.instructions_disp.height }, board.instructions_disp, { 0, 0 }, 0, rl.WHITE)
+    rl.DrawTexturePro(instructions_texture, { 0, instructions_scroll, f32(instructions_texture.width), board.instructions_disp.height }, board.instructions_disp, { 0, 0 }, 0, rl.WHITE)
 
     scr_y:f32 = board.instructions_disp.y
     scr_x:f32 = board.instructions_disp.x + board.instructions_disp.width + (board.font_size)
