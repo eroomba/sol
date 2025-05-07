@@ -38,6 +38,7 @@ Board :: struct {
     title:rl.Rectangle,
     rules:rl.Rectangle,
     ending:rl.Rectangle,
+    options:rl.Rectangle,
 
     instructions_disp:rl.Rectangle,
 
@@ -106,7 +107,20 @@ Board :: struct {
     ending_exit_button_text:cstring,
     ending_restart_button:rl.Rectangle,
     ending_restart_button_status:bit_set[Board_Status],
-    ending_restart_button_text:cstring 
+    ending_restart_button_text:cstring, 
+
+    options_exit_button:rl.Rectangle,
+    options_exit_button_status:bit_set[Board_Status],
+    options_exit_button_text:cstring,
+    options_rules_button:rl.Rectangle,
+    options_rules_button_status:bit_set[Board_Status],
+    options_rules_button_text:cstring,
+    options_main_menu_button:rl.Rectangle,
+    options_main_menu_button_status:bit_set[Board_Status],
+    options_main_menu_button_text:cstring,
+    options_back_button:rl.Rectangle,
+    options_back_button_status:bit_set[Board_Status],
+    options_back_button_text:cstring
 }
 
 Tool_Tip_Status :: enum {
@@ -227,7 +241,20 @@ board := Board{
     ending_exit_button_text = "EXIT",
     ending_restart_button = { 0, 0, 0, 0 },
     ending_restart_button_status = bit_set[Board_Status]{},
-    ending_restart_button_text = "MAIN MENU"
+    ending_restart_button_text = "MAIN MENU",
+
+    options_exit_button = { 0, 0, 0, 0 },
+    options_exit_button_status = bit_set[Board_Status]{},
+    options_exit_button_text = "EXIT GAME",
+    options_rules_button = { 0, 0, 0, 0 },
+    options_rules_button_status = bit_set[Board_Status]{},
+    options_rules_button_text = "HOW TO PLAY",
+    options_main_menu_button = { 0, 0, 0, 0 },
+    options_main_menu_button_status = bit_set[Board_Status]{},
+    options_main_menu_button_text = "MAIN MENU",
+    options_back_button = { 0, 0, 0, 0 },
+    options_back_button_status = bit_set[Board_Status]{},
+    options_back_button_text = "CLOSE"
 
 }
 
@@ -391,6 +418,64 @@ calculate_board :: proc() {
     board.continue_button.y = board.rules.y + board.rules.height - board.padding- board.continue_button.height
 
     board.instructions_disp = { board.rules.x + (2 * board.padding), board.rules.y + board.padding, board.rules.width - (4 * board.padding), board.rules.height - board.continue_button.height - (3.5 * board.padding) }
+
+    // -------
+
+    board.options.width = board.padding * 2
+    board.options.height = (2 * board.padding) + (4 * (c_button_size.y + (2 * board.button_padding))) + (3 * board.card_padding)
+    board.options.x = active_x + (active_width * 0.5) - (board.options.width * 0.5)
+    board.options.y = active_y + (active_height * 0.5) - (board.options.height * 0.5)
+
+    op_x:f32 = board.options.x + (board.options.width * 0.5)
+    op_y:f32 = board.options.y + board.padding
+
+    max_op_w:f32 = 0
+
+    c_button_size = rl.MeasureTextEx(button_font, board.options_rules_button_text, board.button_font_size, board.button_font_spacing)
+    if c_button_size.x > max_op_w {
+        max_op_w = c_button_size.x
+    }
+    board.options_rules_button.width = c_button_size.x + (4 * board.button_padding)
+    board.options_rules_button.height = c_button_size.y + (2 * board.button_padding)
+    board.options_rules_button.x = op_x - (board.options_rules_button.width * 0.5)
+    board.options_rules_button.y = op_y 
+    op_y += board.options_rules_button.height + board.card_padding
+
+    c_button_size = rl.MeasureTextEx(button_font, board.options_main_menu_button_text, board.button_font_size, board.button_font_spacing)
+    if c_button_size.x > max_op_w {
+        max_op_w = c_button_size.x
+    }
+    board.options_main_menu_button.width = c_button_size.x + (4 * board.button_padding)
+    board.options_main_menu_button.height = c_button_size.y + (2 * board.button_padding)
+    board.options_main_menu_button.x = op_x - (board.options_main_menu_button.width * 0.5)
+    board.options_main_menu_button.y = op_y 
+    op_y += board.options_main_menu_button.height + board.card_padding
+
+    c_button_size = rl.MeasureTextEx(button_font, board.options_exit_button_text, board.button_font_size, board.button_font_spacing)
+    if c_button_size.x > max_op_w {
+        max_op_w = c_button_size.x
+    }
+    board.options_exit_button.width = c_button_size.x + (4 * board.button_padding)
+    board.options_exit_button.height = c_button_size.y + (2 * board.button_padding)
+    board.options_exit_button.x = op_x - (board.options_exit_button.width * 0.5)
+    board.options_exit_button.y = op_y 
+    op_y += board.options_exit_button.height + board.card_padding
+
+    c_button_size = rl.MeasureTextEx(button_font, board.options_back_button_text, board.button_font_size, board.button_font_spacing)
+    if c_button_size.x > max_op_w {
+        max_op_w = c_button_size.x
+    }
+    board.options_back_button.width = c_button_size.x + (4 * board.button_padding)
+    board.options_back_button.height = c_button_size.y + (2 * board.button_padding)
+    board.options_back_button.x = op_x - (board.options_back_button.width * 0.5)
+    board.options_back_button.y = op_y 
+    op_y += board.options_back_button.height + board.card_padding
+
+    max_op_w += (4 * board.button_padding) + (2 * board.padding)
+    if max_op_w > board.options.width {
+        board.options.width = max_op_w
+        board.options.x = active_x + (active_width * 0.5) - (board.options.width * 0.5)
+    }
 
     // -------
 
