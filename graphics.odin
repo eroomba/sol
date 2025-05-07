@@ -75,8 +75,10 @@ init_graphics :: proc() -> int {
 	data_size:i32
 
     ret_val:int = 0
-    font = rl.LoadFont("./CharcuterieSerif.ttf")
-    button_font = rl.LoadFont("./CharcuterieContrast.ttf")
+    font_src:cstring = "./CharcuterieSerif.otf"
+    button_font_src:cstring = "./CharcuterieContrast.otf"
+    font = rl.LoadFont(font_src)
+    button_font = rl.LoadFont(button_font_src)
     main_filter = rl.TextureFilter.BILINEAR
 
 
